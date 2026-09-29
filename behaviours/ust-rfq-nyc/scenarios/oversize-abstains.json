@@ -1,0 +1,8 @@
+{
+  "id": "oversize-abstains",
+  "requirements": ["UST-RFQ-005"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [{"chat": "m1", "text": "bid 5bn 10s"}],
+  "expect": {"effects": [], "outcomes": {"m1": "abstain:size"}}
+}

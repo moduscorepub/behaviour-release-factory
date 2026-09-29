@@ -1,0 +1,11 @@
+{
+  "id": "other-desk-ignored",
+  "requirements": ["UST-RFQ-007"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [
+    {"chat": "m1", "text": "eur 10y swap 50mm bid"},
+    {"chat": "m2", "text": "px on 25m ukt 32s"}
+  ],
+  "expect": {"effects": [], "outcomes": {"m1": "unrouted", "m2": "unrouted"}}
+}

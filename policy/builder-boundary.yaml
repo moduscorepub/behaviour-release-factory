@@ -1,0 +1,62 @@
+# Authority-owned maximum access for any implementation-agent sandbox on this repository.
+# Pinned by digest in trust/pins.json. A builder policy is accepted only if openshell-prover
+# proves Allowed(builder) ⊆ Allowed(boundary) across every modelled domain.
+# Deliberately absent: trust/, state/, write access to factory/ or policy/, and any route to
+# Jira, Confluence, the chat platform, the message bus, GitHub write APIs or production data.
+version: 1
+
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /etc
+    - /proc
+    - /dev/urandom
+    - /var/log
+    - /app
+    - /sandbox/workspace/factory
+    - /sandbox/workspace/policy
+    - /sandbox/workspace/examples
+    - /sandbox/workspace/pyproject.toml
+    - /sandbox/workspace/uv.lock
+    - /sandbox/workspace/README.md
+  read_write:
+    - /sandbox/workspace/behaviours
+    - /sandbox/workspace/runtime
+    - /sandbox/workspace/build
+    - /sandbox/workspace/.venv
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: hard_requirement
+
+process:
+  run_as_user: "1500"
+  run_as_group: "1500"
+
+network_policies:
+  claude_inference:
+    endpoints:
+      - host: api.anthropic.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-write
+    binaries:
+      - path: /usr/local/bin/claude
+  python_packages:
+    endpoints:
+      - host: pypi.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      - host: files.pythonhosted.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - path: /usr/local/bin/uv

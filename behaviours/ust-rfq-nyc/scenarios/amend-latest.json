@@ -1,0 +1,18 @@
+{
+  "id": "amend-latest",
+  "requirements": ["UST-RFQ-006"],
+  "room": "UST-CLIENT-2",
+  "firm": "NORTHWIND CAPITAL",
+  "events": [
+    {"chat": "m1", "text": "10s bid 25mm"},
+    {"chat": "m2", "text": "2s offer 10mm"},
+    {"chat": "m3", "text": "make it 50mm"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "instrument": "UST10Y"},
+      {"kind": "rfq_new", "rfq_id": "m2", "instrument": "UST2Y"},
+      {"kind": "rfq_amend", "rfq_id": "m2", "size": 50000000}
+    ]
+  }
+}

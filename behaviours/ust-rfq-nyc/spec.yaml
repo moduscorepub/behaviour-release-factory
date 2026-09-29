@@ -1,0 +1,51 @@
+# Git-owned executable representation of the approved Confluence intent.
+spec_id: ust-rfq-nyc
+revision: 1
+source:
+  confluence_page_id: "100001"
+  page_version: 7
+  content_digest: "sha256:e8daa88558cfa2dad0611ffd0bb1edac8e782124ccfa825bc72005947f3d0014"
+
+requirements:
+  - id: UST-RFQ-001
+    statement: A client price request on a UST benchmark creates exactly one RFQ with the requested side, benchmark and notional.
+    criticality: critical
+    verified_by: [scenario:new-rfq, eval:standard, eval:shorthand]
+  - id: UST-RFQ-002
+    statement: Once cancelled, a delayed or replayed trader acknowledgement must not reactivate or re-route the RFQ.
+    criticality: critical
+    verified_by: [scenario:cancel-then-late-ack, explore]
+  - id: UST-RFQ-003
+    statement: Redelivery, reconnects and restarts neither duplicate external effects nor lose client messages.
+    criticality: critical
+    verified_by: [scenario:duplicate-delivery, scenario:crash-recovery, explore]
+  - id: UST-RFQ-004
+    statement: Quoted chat history is never interpreted as a new request.
+    criticality: critical
+    verified_by: [scenario:quoted-history, eval:quoted_history]
+  - id: UST-RFQ-005
+    statement: Notional outside 1mm-500mm, or ambiguous side, size or benchmark, produces no RFQ.
+    criticality: critical
+    verified_by: [scenario:oversize-abstains, eval:ambiguous]
+  - id: UST-RFQ-006
+    statement: Amendments and cancellations apply to the client's most recent open RFQ.
+    criticality: standard
+    verified_by: [scenario:amend-latest, eval:amend_cancel]
+  - id: UST-RFQ-007
+    statement: Requests for other products in the same rooms (swaps, CDS, bunds, gilts, futures) are not UST RFQs.
+    criticality: critical
+    verified_by: [scenario:other-desk-ignored, eval:other_desk]
+  - id: UST-RFQ-008
+    statement: A trader acknowledgement posts one LIVE suggestion to the UST trader chat.
+    criticality: standard
+    verified_by: [scenario:ack-posts-suggestion]
+
+work_items:
+  - id: ust-rfq-capture
+    summary: Capture UST RFQs from client chat
+    satisfies: [UST-RFQ-001, UST-RFQ-004, UST-RFQ-005, UST-RFQ-007]
+    jira_key: DESK-101
+  - id: ust-rfq-lifecycle
+    summary: Safe UST RFQ lifecycle (ack, amend, cancel, recovery)
+    satisfies: [UST-RFQ-002, UST-RFQ-003, UST-RFQ-006, UST-RFQ-008]
+    jira_key: DESK-102

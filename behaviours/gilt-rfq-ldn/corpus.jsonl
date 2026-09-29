@@ -1,0 +1,40 @@
+{"id": "s01", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["can you show a bid in 25m 4¼s of 32"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.25-2032", "size": 25000000}]}
+{"id": "s02", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["offer 10m 38s pls"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 10000000}]}
+{"id": "s03", "slice": "standard", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["px on 15m ukt 28, 2 way"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UKT-4.5-2028", "size": 15000000}]}
+{"id": "s04", "slice": "standard", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["we sell 20m 4.5s of 28"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.5-2028", "size": 20000000}]}
+{"id": "s05", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["i buy 5m of the 2032s"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-4.25-2032", "size": 5000000}]}
+{"id": "s06", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["bid for 50m 3¾s 38"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-3.75-2038", "size": 50000000}]}
+{"id": "s07", "slice": "standard", "room": "GILT-CLIENT-2", "firm": "CONTOSO PENSIONS", "messages": ["level in 30m gilt 32s?"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UKT-4.25-2032", "size": 30000000}]}
+{"id": "s08", "slice": "standard", "room": "GILT-CLIENT-2", "firm": "CONTOSO PENSIONS", "messages": ["offer 7.5m ukt 2038"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 7500000}]}
+{"id": "s09", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "FABRIKAM INSURANCE", "messages": ["px 32s 40m bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.25-2032", "size": 40000000}]}
+{"id": "s10", "slice": "standard", "room": "GILT-CLIENT-1", "firm": "FABRIKAM INSURANCE", "messages": ["morning, looking to buy 25m 28s, your offer?"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-4.5-2028", "size": 25000000}]}
+{"id": "h01", "slice": "shorthand", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["25 mio 32s bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.25-2032", "size": 25000000}]}
+{"id": "h02", "slice": "shorthand", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["0.25bn 38s offer"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 250000000}]}
+{"id": "h03", "slice": "shorthand", "room": "GILT-CLIENT-2", "firm": "TAILSPIN ASSET MGMT", "messages": ["2.5m 28s bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.5-2028", "size": 2500000}]}
+{"id": "h04", "slice": "shorthand", "room": "GILT-CLIENT-2", "firm": "TAILSPIN ASSET MGMT", "messages": ["bid 40 mln ukt 32"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.25-2032", "size": 40000000}]}
+{"id": "h05", "slice": "shorthand", "room": "GILT-CLIENT-1", "firm": "FABRIKAM INSURANCE", "messages": ["offer 3mm 38s"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 3000000}]}
+{"id": "h06", "slice": "shorthand", "room": "GILT-CLIENT-1", "firm": "FABRIKAM INSURANCE", "messages": ["500k 32s bid"], "expect": []}
+{"id": "q01", "slice": "quoted_history", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["> bid 50m 38s\ncheers, all done"], "expect": []}
+{"id": "q02", "slice": "quoted_history", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["thanks\n> offer 25m 32s"], "expect": []}
+{"id": "q03", "slice": "quoted_history", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["> bid 10m 28s\nnow offer 20m 32s pls"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-4.25-2032", "size": 20000000}]}
+{"id": "q04", "slice": "quoted_history", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["> 25m 32s bid\n> cxl\nall good"], "expect": []}
+{"id": "q05", "slice": "quoted_history", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": [">offer 30m 38s\nsame again tmrw"], "expect": []}
+{"id": "q06", "slice": "quoted_history", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["fwd:\n> px 100m 32s\nfyi only"], "expect": []}
+{"id": "a01", "slice": "ambiguous", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["px on 32s and 38s 25m"], "expect": []}
+{"id": "a02", "slice": "ambiguous", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["bid 25m or 50m 32s"], "expect": []}
+{"id": "a03", "slice": "ambiguous", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["32s bid"], "expect": []}
+{"id": "a04", "slice": "ambiguous", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["25m 38s"], "expect": []}
+{"id": "a05", "slice": "ambiguous", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["px 28s"], "expect": []}
+{"id": "a06", "slice": "ambiguous", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["offer 25m"], "expect": []}
+{"id": "o01", "slice": "other_desk", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["px on 25mm 10s ust bid"], "expect": []}
+{"id": "o02", "slice": "other_desk", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["bund 10y 20m offer"], "expect": []}
+{"id": "o03", "slice": "other_desk", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["eur 5y swap 50m bid"], "expect": []}
+{"id": "o04", "slice": "other_desk", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["gbp 32s swap spread 25m bid"], "expect": []}
+{"id": "o05", "slice": "other_desk", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["long gilt futures 38s contract 200 lots bid"], "expect": []}
+{"id": "o06", "slice": "other_desk", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["bid 25m 32s"], "expect": []}
+{"id": "c01", "slice": "amend_cancel", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["bid 25m 32s", "make it 50m"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.25-2032", "size": 25000000}, {"kind": "rfq_amend", "instrument": "UKT-4.25-2032", "size": 50000000}]}
+{"id": "c02", "slice": "amend_cancel", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["offer 10m 38s", "cxl"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 10000000}, {"kind": "rfq_cancel", "instrument": "UKT-3.75-2038"}]}
+{"id": "c03", "slice": "amend_cancel", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["px 20m 28s bid", "actually 30m"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UKT-4.5-2028", "size": 20000000}, {"kind": "rfq_amend", "size": 30000000}]}
+{"id": "c04", "slice": "amend_cancel", "room": "GILT-CLIENT-2", "firm": "FABRIKAM INSURANCE", "messages": ["make it 50m"], "expect": []}
+{"id": "c05", "slice": "amend_cancel", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["bid 25m 32s", "offer 10m 38s", "cancel"], "expect": [{"kind": "rfq_new", "instrument": "UKT-4.25-2032"}, {"kind": "rfq_new", "instrument": "UKT-3.75-2038"}, {"kind": "rfq_cancel", "instrument": "UKT-3.75-2038"}]}
+{"id": "c06", "slice": "amend_cancel", "room": "GILT-CLIENT-1", "firm": "TAILSPIN ASSET MGMT", "messages": ["2 way 32s 5m", "make it 1bn"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UKT-4.25-2032", "size": 5000000}]}

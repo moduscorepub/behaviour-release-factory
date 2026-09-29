@@ -1,0 +1,5 @@
+{
+  "new": ["bid 25m 32s", "offer 10m 38s", "px 15m ukt 28 2 way", "can you offer 5m of the 4.5s of 28"],
+  "amend": ["make it 20m", "actually 12m"],
+  "cancel": ["cxl", "cancel that pls"]
+}

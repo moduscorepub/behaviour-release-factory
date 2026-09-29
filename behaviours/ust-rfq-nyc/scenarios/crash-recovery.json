@@ -1,0 +1,18 @@
+{
+  "id": "crash-recovery",
+  "requirements": ["UST-RFQ-003"],
+  "room": "UST-CLIENT-2",
+  "firm": "NORTHWIND CAPITAL",
+  "events": [
+    {"chat": "m1", "text": "px 30s 5mm 2 way", "crash": "after_publish"},
+    {"chat": "m2", "text": "bid 10mm 5y", "crash": "mid_process"},
+    {"chat": "m3", "text": "offer 10mm 2y", "crash": "before_transport_ack"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "side": "TWO_WAY", "instrument": "UST30Y", "size": 5000000},
+      {"kind": "rfq_new", "rfq_id": "m2", "side": "BID", "instrument": "UST5Y", "size": 10000000},
+      {"kind": "rfq_new", "rfq_id": "m3", "side": "OFFER", "instrument": "UST2Y", "size": 10000000}
+    ]
+  }
+}

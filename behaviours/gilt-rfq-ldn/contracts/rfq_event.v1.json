@@ -1,0 +1,1 @@
+{"name": "rfq_event.v1", "consumer": "trader-rfq-blotter", "required": ["type", "rfq_id", "desk", "side", "instrument", "size", "ccy"]}

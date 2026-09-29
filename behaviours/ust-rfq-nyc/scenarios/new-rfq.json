@@ -1,0 +1,11 @@
+{
+  "id": "new-rfq",
+  "requirements": ["UST-RFQ-001"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [{"chat": "m1", "text": "morning, px on 25mm 10s pls, bid side"}],
+  "expect": {
+    "effects": [{"kind": "rfq_new", "rfq_id": "m1", "destination": "bus:rfq/nyc/ust", "side": "BID", "instrument": "UST10Y", "size": 25000000, "ccy": "USD"}],
+    "rfq_states": {"m1": "PENDING_ACK"}
+  }
+}

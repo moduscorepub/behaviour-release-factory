@@ -1,0 +1,18 @@
+{
+  "id": "crash-recovery",
+  "requirements": ["GILT-RFQ-003"],
+  "room": "GILT-CLIENT-2",
+  "firm": "FABRIKAM INSURANCE",
+  "events": [
+    {"chat": "m1", "text": "bid 5m 38s", "crash": "after_publish"},
+    {"chat": "m2", "text": "offer 10m ukt 28", "crash": "mid_process"},
+    {"chat": "m3", "text": "px 20m 32s 2 way", "crash": "before_transport_ack"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "side": "BID", "instrument": "UKT-3.75-2038", "size": 5000000},
+      {"kind": "rfq_new", "rfq_id": "m2", "side": "OFFER", "instrument": "UKT-4.5-2028", "size": 10000000},
+      {"kind": "rfq_new", "rfq_id": "m3", "side": "TWO_WAY", "instrument": "UKT-4.25-2032", "size": 20000000}
+    ]
+  }
+}

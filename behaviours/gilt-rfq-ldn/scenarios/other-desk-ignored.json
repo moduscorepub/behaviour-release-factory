@@ -1,0 +1,12 @@
+{
+  "id": "other-desk-ignored",
+  "requirements": ["GILT-RFQ-007"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [
+    {"chat": "m1", "text": "px on 25mm 10s ust bid"},
+    {"chat": "m2", "text": "bund 10y 20m offer"},
+    {"chat": "m3", "room": "UST-CLIENT-1", "text": "bid 25m 32s"}
+  ],
+  "expect": {"effects": [], "outcomes": {"m1": "unrouted", "m2": "unrouted", "m3": "unrouted"}}
+}

@@ -1,0 +1,8 @@
+{
+  "id": "quoted-history",
+  "requirements": ["UST-RFQ-004"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [{"chat": "m1", "text": "> px on 50mm 30s bid\nthx, done for today"}],
+  "expect": {"effects": [], "outcomes": {"m1": "ignored"}}
+}

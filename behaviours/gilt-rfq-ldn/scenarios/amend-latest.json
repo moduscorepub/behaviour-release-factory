@@ -1,0 +1,18 @@
+{
+  "id": "amend-latest",
+  "requirements": ["GILT-RFQ-006"],
+  "room": "GILT-CLIENT-2",
+  "firm": "FABRIKAM INSURANCE",
+  "events": [
+    {"chat": "m1", "text": "32s bid 25m"},
+    {"chat": "m2", "text": "38s offer 10m"},
+    {"chat": "m3", "text": "make it 15m"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "instrument": "UKT-4.25-2032"},
+      {"kind": "rfq_new", "rfq_id": "m2", "instrument": "UKT-3.75-2038"},
+      {"kind": "rfq_amend", "rfq_id": "m2", "size": 15000000}
+    ]
+  }
+}

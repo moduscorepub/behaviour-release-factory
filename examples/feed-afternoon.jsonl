@@ -1,0 +1,3 @@
+{"chat": "msg-2001", "conv": "gilt-tailspin", "room": "GILT-CLIENT-2", "firm": "TAILSPIN ASSET MGMT", "text": "offer 15m 38s pls"}
+{"chat": "msg-2002", "conv": "gilt-fabrikam", "room": "GILT-CLIENT-1", "firm": "FABRIKAM INSURANCE", "text": "bid 40m ukt 28"}
+{"trader_ack": "msg-2002"}

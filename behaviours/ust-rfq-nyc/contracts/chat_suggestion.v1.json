@@ -1,0 +1,1 @@
+{"name": "chat_suggestion.v1", "consumer": "chat-outbound", "required": ["rfq_id", "text"]}

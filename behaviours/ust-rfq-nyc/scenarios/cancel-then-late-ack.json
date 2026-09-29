@@ -1,0 +1,19 @@
+{
+  "id": "cancel-then-late-ack",
+  "requirements": ["UST-RFQ-002"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [
+    {"chat": "m1", "text": "bid 20mm 2s"},
+    {"chat": "m2", "text": "cxl pls"},
+    {"trader_ack": "m1"},
+    {"trader_ack": "m1"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "side": "BID", "instrument": "UST2Y", "size": 20000000},
+      {"kind": "rfq_cancel", "rfq_id": "m1"}
+    ],
+    "rfq_states": {"m1": "CANCELLED"}
+  }
+}

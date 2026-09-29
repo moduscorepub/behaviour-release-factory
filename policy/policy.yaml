@@ -1,0 +1,39 @@
+# Protected engineering policy. Owned by the approving function, pinned by digest in trust/pins.json.
+# Editing this file without re-pinning makes every gate decision FAIL.
+policy_version: 1
+
+desks:
+  NYC-UST:
+    destinations: ["bus:rfq/nyc/ust", "chat:UST-TRADERS"]
+  LDN-GILTS:
+    destinations: ["bus:rfq/ldn/gilts", "chat:GILT-TRADERS"]
+
+# Effects a component may declare at each pipeline stage.
+stage_effects:
+  enrichment: ["write:derived_text"]
+  parser: ["read:refdata"]
+  converter: ["emit:payload"]
+
+# Obligations every behaviour release must discharge ("scenarios" expands to every scenario in the package).
+obligations: [static:schema, static:traceability, static:composition, static:effects, interference, scenarios, eval, explore, mutation]
+
+evaluation:
+  min_wilson_lower: 0.55        # per-slice floor on the 95% Wilson lower bound of correctness
+  slice_floors: {standard: 0.65}
+  zero_harm_slices: [other_desk, ambiguous, quoted_history]
+  paired_alpha: 0.05            # one-sided exact McNemar vs the live baseline, per slice
+
+exploration:
+  max_examples: 400             # delivery/crash/ack/release-switch schedules searched per candidate
+
+mutation:
+  explore_examples: 150         # exploration budget when probing each domain mutant
+
+promotion:
+  behaviour: {auto: true, blocking_flags: [new_destination, trigger_scope_widened]}
+  runtime: {auto: false}        # shared-engine changes need an authorised promotion approval
+
+# Delivery-state projection. Whether Jira "Done" means merged, qualified or activated is a ratified workflow decision.
+jira:
+  project: DESK
+  status: {todo: "To Do", in_progress: "In Progress", blocked: "Blocked", qualified: "In Review", activated: "Done"}

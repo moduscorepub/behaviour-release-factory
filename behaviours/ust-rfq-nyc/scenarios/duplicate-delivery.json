@@ -1,0 +1,15 @@
+{
+  "id": "duplicate-delivery",
+  "requirements": ["UST-RFQ-003"],
+  "room": "UST-CLIENT-1",
+  "firm": "ACME AM",
+  "events": [
+    {"chat": "m1", "text": "offer 15mm tens"},
+    {"redeliver": "m1"},
+    {"redeliver": "m1"}
+  ],
+  "expect": {
+    "effects": [{"kind": "rfq_new", "rfq_id": "m1", "side": "OFFER", "instrument": "UST10Y", "size": 15000000}],
+    "outcomes": {"m1": "rfq_new"}
+  }
+}

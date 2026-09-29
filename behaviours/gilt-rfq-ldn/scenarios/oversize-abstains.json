@@ -1,0 +1,8 @@
+{
+  "id": "oversize-abstains",
+  "requirements": ["GILT-RFQ-005"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [{"chat": "m1", "text": "bid 500m 32s"}],
+  "expect": {"effects": [], "outcomes": {"m1": "abstain:size"}}
+}

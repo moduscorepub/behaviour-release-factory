@@ -1,0 +1,40 @@
+{"id": "s01", "slice": "standard", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["px on 25mm 10s bid pls"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 25000000}]}
+{"id": "s02", "slice": "standard", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["can you offer 10mm 5s"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST5Y", "size": 10000000}]}
+{"id": "s03", "slice": "standard", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["2 way in 30s, 5mm"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UST30Y", "size": 5000000}]}
+{"id": "s04", "slice": "standard", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["bid for 50mm twos"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST2Y", "size": 50000000}]}
+{"id": "s05", "slice": "standard", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["we sell 15mm 10yr"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 15000000}]}
+{"id": "s06", "slice": "standard", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["i buy 20mm fives"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST5Y", "size": 20000000}]}
+{"id": "s07", "slice": "standard", "room": "UST-CLIENT-2", "firm": "ACME AM", "messages": ["level on 100mm long bond?"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UST30Y", "size": 100000000}]}
+{"id": "s08", "slice": "standard", "room": "UST-CLIENT-2", "firm": "ACME AM", "messages": ["offer 7.5mm 2yr"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST2Y", "size": 7500000}]}
+{"id": "s09", "slice": "standard", "room": "UST-CLIENT-1", "firm": "NORTHWIND CAPITAL", "messages": ["px 10s 30mm bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 30000000}]}
+{"id": "s10", "slice": "standard", "room": "UST-CLIENT-1", "firm": "NORTHWIND CAPITAL", "messages": ["morning! looking to buy 25mm 5y, your offer?"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST5Y", "size": 25000000}]}
+{"id": "h01", "slice": "shorthand", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["25 mio 10s bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 25000000}]}
+{"id": "h02", "slice": "shorthand", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["0.5bn 30s offer"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST30Y", "size": 500000000}]}
+{"id": "h03", "slice": "shorthand", "room": "UST-CLIENT-2", "firm": "CONTOSO PENSIONS", "messages": ["2.5m tens bid"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 2500000}]}
+{"id": "h04", "slice": "shorthand", "room": "UST-CLIENT-2", "firm": "CONTOSO PENSIONS", "messages": ["bid 40 mln 5s"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST5Y", "size": 40000000}]}
+{"id": "h05", "slice": "shorthand", "room": "UST-CLIENT-1", "firm": "NORTHWIND CAPITAL", "messages": ["offer 3mm twos"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST2Y", "size": 3000000}]}
+{"id": "h06", "slice": "shorthand", "room": "UST-CLIENT-1", "firm": "NORTHWIND CAPITAL", "messages": ["10 mm 30y 2 way"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UST30Y", "size": 10000000}]}
+{"id": "q01", "slice": "quoted_history", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["> px on 50mm 30s bid\nthx, done for today"], "expect": []}
+{"id": "q02", "slice": "quoted_history", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["thanks\n> offer 25mm 10s"], "expect": []}
+{"id": "q03", "slice": "quoted_history", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["> bid 10mm 2s\ncan you now offer 20mm 5s"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST5Y", "size": 20000000}]}
+{"id": "q04", "slice": "quoted_history", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["> 25mm 10s bid\n> cxl\nall good"], "expect": []}
+{"id": "q05", "slice": "quoted_history", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": [">bid 30mm 30s\nsame again pls"], "expect": []}
+{"id": "q06", "slice": "quoted_history", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["fwd from desk:\n> px 100mm 10s\nno action needed"], "expect": []}
+{"id": "a01", "slice": "ambiguous", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["px on 10s and 30s 25mm"], "expect": []}
+{"id": "a02", "slice": "ambiguous", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["bid 25mm or 50mm 10s"], "expect": []}
+{"id": "a03", "slice": "ambiguous", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["10s bid"], "expect": []}
+{"id": "a04", "slice": "ambiguous", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["25mm 10s"], "expect": []}
+{"id": "a05", "slice": "ambiguous", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["px 5s"], "expect": []}
+{"id": "a06", "slice": "ambiguous", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["offer 25mm"], "expect": []}
+{"id": "o01", "slice": "other_desk", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["px on 25m ukt 32s"], "expect": []}
+{"id": "o02", "slice": "other_desk", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["eur 10y swap 50mm bid"], "expect": []}
+{"id": "o03", "slice": "other_desk", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["bund 10y 25mm offer"], "expect": []}
+{"id": "o04", "slice": "other_desk", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["can you show 5y cds on widgetco 10mm bid"], "expect": []}
+{"id": "o05", "slice": "other_desk", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["tsy futures: 10s contract, 500 lots bid"], "expect": []}
+{"id": "o06", "slice": "other_desk", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["gilt 2y 20m bid"], "expect": []}
+{"id": "c01", "slice": "amend_cancel", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["px 25mm 10s bid", "make it 50mm"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST10Y", "size": 25000000}, {"kind": "rfq_amend", "instrument": "UST10Y", "size": 50000000}]}
+{"id": "c02", "slice": "amend_cancel", "room": "UST-CLIENT-1", "firm": "ACME AM", "messages": ["offer 10mm 5s", "cxl"], "expect": [{"kind": "rfq_new", "side": "OFFER", "instrument": "UST5Y", "size": 10000000}, {"kind": "rfq_cancel", "instrument": "UST5Y"}]}
+{"id": "c03", "slice": "amend_cancel", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["bid 20mm 2s", "actually 30mm"], "expect": [{"kind": "rfq_new", "side": "BID", "instrument": "UST2Y", "size": 20000000}, {"kind": "rfq_amend", "size": 30000000}]}
+{"id": "c04", "slice": "amend_cancel", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "messages": ["make it 50mm"], "expect": []}
+{"id": "c05", "slice": "amend_cancel", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["px 10s 25mm bid", "offer 5s 10mm", "cancel"], "expect": [{"kind": "rfq_new", "instrument": "UST10Y"}, {"kind": "rfq_new", "instrument": "UST5Y"}, {"kind": "rfq_cancel", "instrument": "UST5Y"}]}
+{"id": "c06", "slice": "amend_cancel", "room": "UST-CLIENT-1", "firm": "CONTOSO PENSIONS", "messages": ["2 way 30s 5mm", "make it 1bn"], "expect": [{"kind": "rfq_new", "side": "TWO_WAY", "instrument": "UST30Y", "size": 5000000}]}

@@ -1,0 +1,11 @@
+{
+  "id": "new-rfq",
+  "requirements": ["GILT-RFQ-001"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [{"chat": "m1", "text": "can you show me a bid in 25m of the 4¼s of 32"}],
+  "expect": {
+    "effects": [{"kind": "rfq_new", "rfq_id": "m1", "destination": "bus:rfq/ldn/gilts", "side": "BID", "instrument": "UKT-4.25-2032", "size": 25000000, "ccy": "GBP"}],
+    "rfq_states": {"m1": "PENDING_ACK"}
+  }
+}

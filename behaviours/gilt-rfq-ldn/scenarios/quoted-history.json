@@ -1,0 +1,8 @@
+{
+  "id": "quoted-history",
+  "requirements": ["GILT-RFQ-004"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [{"chat": "m1", "text": "> bid 50m 38s\ncheers, all done"}],
+  "expect": {"effects": [], "outcomes": {"m1": "ignored"}}
+}

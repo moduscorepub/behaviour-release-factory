@@ -1,0 +1,16 @@
+{
+  "behaviour_id": "ust-rfq-nyc",
+  "desk": "NYC-UST",
+  "trigger": {
+    "rooms": ["UST-CLIENT-1", "UST-CLIENT-2"],
+    "sender_firms": ["*"],
+    "keywords_any": [],
+    "pattern": "(?s)^(?!.*\\b(swaps?|eur|euro|bunds?|gilts?|ukt|cds|jgbs?|oats?|btps?|futures?)\\b)"
+  },
+  "enrichment": ["strip_quoted_history", "normalise_whitespace", "expand_size_shorthand", "ust_aliases"],
+  "parser": {"component": "rfq_parser_v1", "universe": "ust", "min_size": 1000000, "max_size": 500000000},
+  "outputs": [
+    {"component": "bus_rfq_v1", "destination": "bus:rfq/nyc/ust"},
+    {"component": "chat_suggestion_v1", "destination": "chat:UST-TRADERS"}
+  ]
+}

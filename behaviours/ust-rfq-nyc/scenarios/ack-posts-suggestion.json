@@ -1,0 +1,17 @@
+{
+  "id": "ack-posts-suggestion",
+  "requirements": ["UST-RFQ-008"],
+  "room": "UST-CLIENT-2",
+  "firm": "NORTHWIND CAPITAL",
+  "events": [
+    {"chat": "m1", "text": "can i get an offer in 5s, 10mm"},
+    {"trader_ack": "m1"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "destination": "bus:rfq/nyc/ust", "side": "OFFER", "instrument": "UST5Y", "size": 10000000},
+      {"kind": "rfq_live", "rfq_id": "m1", "destination": "chat:UST-TRADERS"}
+    ],
+    "rfq_states": {"m1": "ACTIVE"}
+  }
+}

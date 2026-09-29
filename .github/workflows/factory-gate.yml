@@ -1,0 +1,63 @@
+# Promotion gate on the actual merge candidate. Required check for the protected branch.
+# merge_group makes the evidence bind to (target branch + queued changes), not a stale PR head.
+name: factory-gate
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+jobs:
+  builder-sandbox:
+    runs-on: ubuntu-latest
+    environment: factory-authority # holds FACTORY_TRUST_TARBALL; approvals required to change it
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Restore authority material (pins, approvals; no key needed here)
+        run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
+        env:
+          FACTORY_TRUST_TARBALL: ${{ secrets.FACTORY_TRUST_TARBALL }}
+      - name: Install openshell-prover (static musl build, checksum-verified)
+        run: |
+          base=https://github.com/NVIDIA/OpenShell/releases/latest/download
+          asset=openshell-prover-x86_64-unknown-linux-musl.tar.gz
+          curl -fsSLO "$base/$asset" && curl -fsSLO "$base/openshell-checksums-sha256.txt"
+          grep " \*\?$asset\$" openshell-checksums-sha256.txt | sha256sum -c -
+          mkdir -p .tools/bin prover && tar -xzf "$asset" -C prover
+          find prover -type f -name openshell-prover -exec install -m 0755 {} .tools/bin/ \;
+      - run: uv run --frozen python -m factory sandbox-check
+
+  gate:
+    runs-on: ubuntu-latest
+    environment: factory-authority
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Restore authority material and release state
+        run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
+        env:
+          FACTORY_TRUST_TARBALL: ${{ secrets.FACTORY_TRUST_TARBALL }}
+      - name: Compile, evidence and gate every behaviour in the candidate
+        env:
+          FACTORY_RUNNER_KEY: ${{ secrets.FACTORY_RUNNER_KEY }} # parent only; the worker environment is scrubbed of FACTORY_*
+        run: |
+          status=0
+          for dir in behaviours/*/; do
+            b=$(basename "$dir")
+            uv run --frozen python -m factory compile "$b" || true   # diagnostics become failed static obligations
+            uv run --frozen python -m factory evidence "$b" || true  # failures are recorded, then judged by the gate
+            uv run --frozen python -m factory gate "$b" > "gate-$b.json" || status=1
+          done
+          exit $status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: factory-evidence
+          path: |
+            build/*/package.json
+            build/*/evidence.json
+            gate-*.json

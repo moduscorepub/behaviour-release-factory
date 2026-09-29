@@ -1,0 +1,21 @@
+{
+  "events": [
+    {
+      "chat": "g0",
+      "conv": "x0",
+      "crash": "after_publish",
+      "text": "bid 25m 32s"
+    }
+  ],
+  "expect": {},
+  "firm": "ANY-FIRM",
+  "id": "regression-5b9651ac8c7f",
+  "origin": {
+    "found_by": "explore",
+    "violations": [
+      "I1 duplicate external effect: rfq_new for g0 to bus:rfq/ldn/gilts published 2x"
+    ]
+  },
+  "requirements": [],
+  "room": "GILT-CLIENT-1"
+}

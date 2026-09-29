@@ -1,0 +1,5 @@
+{
+  "new": ["px on 25mm 10s bid", "offer 5s 10mm", "2 way in 30s 5mm", "bid 20mm 2y"],
+  "amend": ["make it 50mm", "actually 15mm"],
+  "cancel": ["cxl", "never mind, cancel that"]
+}

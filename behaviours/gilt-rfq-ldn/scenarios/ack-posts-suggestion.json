@@ -1,0 +1,17 @@
+{
+  "id": "ack-posts-suggestion",
+  "requirements": ["GILT-RFQ-008"],
+  "room": "GILT-CLIENT-2",
+  "firm": "FABRIKAM INSURANCE",
+  "events": [
+    {"chat": "m1", "text": "offer 10m 38s pls"},
+    {"trader_ack": "m1"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "destination": "bus:rfq/ldn/gilts", "side": "OFFER", "instrument": "UKT-3.75-2038", "size": 10000000},
+      {"kind": "rfq_live", "rfq_id": "m1", "destination": "chat:GILT-TRADERS"}
+    ],
+    "rfq_states": {"m1": "ACTIVE"}
+  }
+}

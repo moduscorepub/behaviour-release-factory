@@ -1,0 +1,10 @@
+{"chat": "msg-1001", "conv": "ust-acme", "room": "UST-CLIENT-1", "firm": "ACME AM", "text": "morning, px on 25mm 10s bid"}
+{"trader_ack": "msg-1001"}
+{"chat": "msg-1002", "conv": "ust-acme", "room": "UST-CLIENT-1", "firm": "ACME AM", "text": "make it 40mm"}
+{"chat": "msg-1003", "conv": "ust-nw", "room": "UST-CLIENT-2", "firm": "NORTHWIND CAPITAL", "text": "eur 10y swap 50mm bid"}
+{"chat": "msg-1004", "conv": "gilt-contoso", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "text": "can you show me a bid in 25m of the 4¼s of 32"}
+{"chat": "msg-1005", "conv": "gilt-contoso", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "text": "actually 30m"}
+{"trader_ack": "msg-1004"}
+{"chat": "msg-1006", "conv": "gilt-contoso", "room": "GILT-CLIENT-1", "firm": "CONTOSO PENSIONS", "text": "cxl, thanks"}
+{"trader_ack": "msg-1004"}
+{"chat": "msg-1001", "conv": "ust-acme", "room": "UST-CLIENT-1", "firm": "ACME AM", "text": "morning, px on 25mm 10s bid"}

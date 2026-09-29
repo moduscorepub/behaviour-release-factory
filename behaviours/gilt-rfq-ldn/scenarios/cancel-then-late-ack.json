@@ -1,0 +1,19 @@
+{
+  "id": "cancel-then-late-ack",
+  "requirements": ["GILT-RFQ-002"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [
+    {"chat": "m1", "text": "bid 20m ukt 28"},
+    {"chat": "m2", "text": "cxl"},
+    {"trader_ack": "m1"},
+    {"trader_ack": "m1"}
+  ],
+  "expect": {
+    "effects": [
+      {"kind": "rfq_new", "rfq_id": "m1", "side": "BID", "instrument": "UKT-4.5-2028", "size": 20000000},
+      {"kind": "rfq_cancel", "rfq_id": "m1"}
+    ],
+    "rfq_states": {"m1": "CANCELLED"}
+  }
+}

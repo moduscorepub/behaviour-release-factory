@@ -1,0 +1,16 @@
+{
+  "behaviour_id": "gilt-rfq-ldn",
+  "desk": "LDN-GILTS",
+  "trigger": {
+    "rooms": ["GILT-CLIENT-1", "GILT-CLIENT-2"],
+    "sender_firms": ["*"],
+    "keywords_any": [],
+    "pattern": "(?s)^(?!.*\\b(swaps?|eur|euro|bunds?|tsy|treasury|treasuries|ust|cds|futures?|jgbs?|btps?|oats?)\\b)"
+  },
+  "enrichment": ["strip_quoted_history", "normalise_whitespace", "expand_size_shorthand", "gilt_aliases"],
+  "parser": {"component": "rfq_parser_v1", "universe": "gilts", "min_size": 1000000, "max_size": 250000000},
+  "outputs": [
+    {"component": "bus_rfq_v1", "destination": "bus:rfq/ldn/gilts"},
+    {"component": "chat_suggestion_v1", "destination": "chat:GILT-TRADERS"}
+  ]
+}

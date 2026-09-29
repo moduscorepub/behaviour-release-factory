@@ -1,0 +1,5 @@
+[
+  {"key": "DESK-101", "status": "In Progress", "labels": []},
+  {"key": "DESK-102", "status": "Done", "labels": ["factory.ust-rfq-nyc.ust-rfq-lifecycle"]},
+  {"key": "DESK-201", "status": "To Do", "labels": ["factory.gilt-rfq-ldn.gilt-onboarding"]}
+]

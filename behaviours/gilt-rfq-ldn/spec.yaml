@@ -1,0 +1,50 @@
+# Git-owned executable representation of the approved Confluence intent.
+spec_id: gilt-rfq-ldn
+revision: 1
+source:
+  confluence_page_id: "100002"
+  page_version: 3
+  content_digest: "sha256:44191c51b7cffd160c2a38a243d4ba2e795aa84d71c5c65a188ffc9345b840ec"
+
+requirements:
+  - id: GILT-RFQ-001
+    statement: A client price request on a conventional gilt creates exactly one RFQ with the requested side, gilt and nominal.
+    criticality: critical
+    verified_by: [scenario:new-rfq, eval:standard, eval:shorthand]
+  - id: GILT-RFQ-002
+    statement: Once cancelled, a delayed or replayed trader acknowledgement must not reactivate or re-route the RFQ.
+    criticality: critical
+    verified_by: [scenario:cancel-then-late-ack, explore]
+  - id: GILT-RFQ-003
+    statement: Redelivery, reconnects and restarts neither duplicate external effects nor lose client messages.
+    criticality: critical
+    verified_by: [scenario:duplicate-delivery, scenario:crash-recovery, explore]
+  - id: GILT-RFQ-004
+    statement: Quoted chat history is never interpreted as a new request.
+    criticality: critical
+    verified_by: [scenario:quoted-history, eval:quoted_history]
+  - id: GILT-RFQ-005
+    statement: Nominal outside 1m-250m GBP, or ambiguous side, size or gilt, produces no RFQ.
+    criticality: critical
+    verified_by: [scenario:oversize-abstains, eval:ambiguous]
+  - id: GILT-RFQ-006
+    statement: Amendments and cancellations apply to the client's most recent open RFQ.
+    criticality: standard
+    verified_by: [scenario:amend-latest, eval:amend_cancel]
+  - id: GILT-RFQ-007
+    statement: Requests for other products in the gilt rooms, and any message in the UST rooms, are not gilt RFQs.
+    criticality: critical
+    verified_by: [scenario:other-desk-ignored, eval:other_desk]
+  - id: GILT-RFQ-008
+    statement: A trader acknowledgement posts one LIVE suggestion to the gilt trader chat.
+    criticality: standard
+    verified_by: [scenario:ack-posts-suggestion]
+
+work_items:
+  - id: gilt-onboarding
+    summary: Onboard LDN gilt desk RFQ capture
+    satisfies: [GILT-RFQ-001, GILT-RFQ-004, GILT-RFQ-005, GILT-RFQ-007]
+    jira_key: DESK-201
+  - id: gilt-lifecycle
+    summary: Safe gilt RFQ lifecycle (ack, amend, cancel, recovery)
+    satisfies: [GILT-RFQ-002, GILT-RFQ-003, GILT-RFQ-006, GILT-RFQ-008]

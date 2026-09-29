@@ -1,0 +1,15 @@
+{
+  "id": "duplicate-delivery",
+  "requirements": ["GILT-RFQ-003"],
+  "room": "GILT-CLIENT-1",
+  "firm": "CONTOSO PENSIONS",
+  "events": [
+    {"chat": "m1", "text": "px 15m 32s 2 way"},
+    {"redeliver": "m1"},
+    {"redeliver": "m1"}
+  ],
+  "expect": {
+    "effects": [{"kind": "rfq_new", "rfq_id": "m1", "side": "TWO_WAY", "instrument": "UKT-4.25-2032", "size": 15000000}],
+    "outcomes": {"m1": "rfq_new"}
+  }
+}

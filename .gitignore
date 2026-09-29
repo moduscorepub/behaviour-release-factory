@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.hypothesis/
+.DS_Store
+.tools/
+build/
+state/
+# Authority-owned: runner key, pins and approvals never live in the builder's repository.
+trust/

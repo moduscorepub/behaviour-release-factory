@@ -1,0 +1,66 @@
+# OpenShell sandbox policy for the implementation agent (Claude Code) working on this repository.
+# Workspace is mounted at /sandbox/workspace. Builder-proposable; must stay within
+# policy/builder-boundary.yaml (checked by `factory sandbox-check` with openshell-prover).
+#
+#   openshell sandbox create --name builder --provider claude-code \
+#     --policy sandbox/builder-policy.yaml -- claude
+#
+# The authority material (trust/: runner key, pins, approvals) and runtime state are not listed,
+# so Landlock makes them unreachable: the agent can propose changes and run unsigned checks, but it
+# cannot sign evidence, approve contracts, edit the ratified policy or reach delivery systems.
+version: 1
+
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /etc
+    - /proc
+    - /dev/urandom
+    - /var/log
+    - /app
+    - /sandbox/workspace/factory
+    - /sandbox/workspace/policy
+    - /sandbox/workspace/examples
+    - /sandbox/workspace/pyproject.toml
+    - /sandbox/workspace/uv.lock
+  read_write:
+    - /sandbox/workspace/behaviours
+    - /sandbox/workspace/runtime
+    - /sandbox/workspace/build
+    - /sandbox/workspace/.venv
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: hard_requirement
+
+process:
+  run_as_user: "1500"
+  run_as_group: "1500"
+
+network_policies:
+  claude_inference:
+    endpoints:
+      - host: api.anthropic.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-write
+    binaries:
+      - path: /usr/local/bin/claude
+  python_packages:
+    endpoints:
+      - host: pypi.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      - host: files.pythonhosted.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - path: /usr/local/bin/uv

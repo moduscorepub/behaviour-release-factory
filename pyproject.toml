@@ -1,0 +1,9 @@
+[project]
+name = "behaviour-release-factory"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "hypothesis>=6.168.3",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+]
