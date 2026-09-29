@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Isolation boundary: candidate runtime code only ever executes in this subprocess.
+"""Run the engine code under test in a separate worker process, which is the only place where the code under test runs.
 
-The parent passes a JSON request on stdin and receives JSON on stdout. The subprocess runs
-with cwd = candidate runtime root, so `import runtime` resolves to the candidate tree while
-`factory` comes from the trusted install. The parent never imports candidate code.
+The parent process sends a JSON request on standard input and reads the JSON answer from standard output. The worker
+process starts in the runtime folder under test, so `import runtime` loads the code under test, while `factory` still
+loads from the trusted installation. The parent process never imports the code under test.
 """
 
 import json
@@ -20,13 +20,13 @@ from factory.canon import PROJECT
 
 
 def call(runtime_root: Path, request: dict) -> dict | list:
-    env = {k: v for k, v in os.environ.items() if not k.startswith("FACTORY_")}  # candidate code never sees factory secrets
+    env = {k: v for k, v in os.environ.items() if not k.startswith("FACTORY_")}  # The code under test never sees the secrets of the factory.
     env |= {"PYTHONPATH": str(PROJECT), "PYTHONDONTWRITEBYTECODE": "1"}
     proc = subprocess.run(
         [sys.executable, "-m", "factory.worker"], cwd=runtime_root, env=env, input=json.dumps(request), capture_output=True, text=True, timeout=3600
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"worker failed ({proc.returncode}): {proc.stderr[-2000:]}")
+        raise RuntimeError(f"the worker process failed with exit code {proc.returncode}: {proc.stderr[-2000:]}")
     return json.loads(proc.stdout)
 
 
@@ -87,8 +87,8 @@ def _one(ob: str, pkg: dict, policy: dict, others: list[dict], baseline: dict | 
             elif ob == "mutation":
                 result = mutation.run(pkg, policy, Path.cwd())
             else:
-                result = {"status": "error", "error": f"unknown obligation {ob}"}
-    except Exception as e:  # an obligation that cannot run is inconclusive, never a pass
+                result = {"status": "error", "error": f"the check {ob} doesn't exist"}
+    except Exception as e:  # A check that can't run makes the gate answer INCONCLUSIVE, and never PASS.
         result = {"status": "error", "error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc(limit=3)}
     status = result.pop("status")
     return {"obligation": ob, "status": status, "details": result, "seconds": round(time.perf_counter() - started, 3)}

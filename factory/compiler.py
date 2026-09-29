@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Behaviour-release compiler: approved spec + profile + scenarios + corpus -> canonical package.
+"""Compile a desk into a release package.
 
-Deterministic: resolves configuration, validates composition and permitted effects,
-detects cross-behaviour interference and binds the package to the exact runtime code it
-was compiled against. Runtime objects (registry, refdata, trigger matcher) are injected
-by the worker so the trusted parent never imports candidate code.
+The compiler combines the approved requirements, the profile, the scenarios and the example
+messages of a desk into one package, and it always gives the same result for the same input.
+It checks that the components fit together and only have allowed effects. It also checks that
+the desk can't pick up the messages of another desk, and it ties the package to the exact
+engine code that it was compiled against.
+
+The worker passes in the objects from the engine, e.g., the component list, the reference data
+and the trigger matcher, so the trusted parent process never imports the code under test.
 """
 
 import ast
@@ -31,7 +35,7 @@ class _Strict(BaseModel):
 
 class Trigger(_Strict):
     rooms: list[str] = Field(min_length=1)
-    sender_firms: list[str] = Field(min_length=1)  # ["*"] = any firm
+    sender_firms: list[str] = Field(min_length=1)  # ["*"] means any firm.
     keywords_any: list[str] = []
     pattern: str | None = None
 
@@ -51,7 +55,7 @@ class ParserConfig(_Strict):
     @model_validator(mode="after")
     def _bounds(self):
         if self.min_size > self.max_size:
-            raise ValueError("min_size > max_size")
+            raise ValueError("min_size is larger than max_size")
         return self
 
 
@@ -79,7 +83,7 @@ class Requirement(_Strict):
     id: str
     statement: str
     criticality: Literal["critical", "standard"]
-    verified_by: list[str] = Field(min_length=1)  # scenario:<id> | eval:<slice> | explore | mutation
+    verified_by: list[str] = Field(min_length=1)  # Each entry is scenario:<id>, eval:<slice>, explore or mutation.
 
 
 class WorkItem(_Strict):
@@ -97,7 +101,7 @@ class Spec(_Strict):
     work_items: list[WorkItem] = Field(min_length=1)
 
 
-# ---- assembly (file-only, runs in the trusted parent) --------------------------------------
+# Reading the files of a desk. The code only reads files, and it runs in the trusted parent process.
 def read_behaviour(directory: Path) -> dict:
     scenario_dir = directory / "scenarios"
     return {
@@ -119,10 +123,11 @@ def module_path(module: str, root: Path) -> str:
 
 
 def runtime_closure(root: Path, component_modules: list[str]) -> dict:
-    """Digest every runtime file the behaviour can execute: core engine imports + selected components.
+    """Hash every engine file that the desk can run, i.e., the files that the core engine imports and the selected components.
 
-    Registry imports are declaration edges and are not followed. Files using dynamic
-    import/exec make the edge set unknown; impact analysis then widens to any runtime change.
+    The compiler doesn't follow the imports in the component list, because the imports there only declare components.
+    If a file uses dynamic imports or exec, nobody can know which files it runs, so the impact check treats any engine
+    change as a change that affects the desk.
     """
     todo = list(CORE_MODULES) + [module_path(m, root) for m in component_modules]
     files: dict[str, str] = {}
@@ -168,14 +173,14 @@ def package_digest(pkg: dict) -> str:
     return digest(pkg)
 
 
-# ---- static obligations (run in the worker against the candidate runtime) -----------------
+# Static checks. The worker runs them against the engine code under test.
 def _errors(model, data) -> list[str]:
     try:
         model.model_validate(data)
         return []
     except ValidationError as e:
         return [f"{model.__name__}: {'.'.join(map(str, err['loc']))}: {err['msg']}" for err in e.errors()]
-    except (re.error, ValueError) as e:  # pattern compilation inside validators
+    except (re.error, ValueError) as e:  # A trigger pattern that doesn't compile raises one of the errors.
         return [f"{model.__name__}: {e}"]
 
 
@@ -183,33 +188,33 @@ def check_schema(pkg: dict) -> list[str]:
     errors = _errors(Spec, pkg["spec"]) + _errors(Profile, pkg["profile"])
     for sid, s in pkg["scenarios"].items():
         if not isinstance(s.get("events"), list) or not s["events"]:
-            errors.append(f"scenario {sid}: no events")
+            errors.append(f"scenario {sid} has no events")
     for i, item in enumerate(pkg["corpus"]):
         if not {"id", "slice", "room", "firm", "messages", "expect"} <= item.keys():
-            errors.append(f"corpus[{i}]: needs id, slice, room, firm, messages, expect")
+            errors.append(f"corpus[{i}] needs the fields id, slice, room, firm, messages and expect")
     return errors
 
 
 def check_traceability(pkg: dict) -> list[str]:
     spec, errors = pkg["spec"], []
     if sha(pkg["intent"].encode()) != spec["source"]["content_digest"]:
-        errors.append("intent.md does not match the approved Confluence content digest")
+        errors.append("intent.md doesn't match the hash of the approved Confluence page")
     if not (pkg["behaviour_id"] == spec["spec_id"] == pkg["profile"].get("behaviour_id")):
-        errors.append("behaviour id, spec_id and profile.behaviour_id disagree")
+        errors.append("the folder name, spec_id and profile.behaviour_id aren't the same")
     req_ids = {r["id"] for r in spec["requirements"]}
     slices = {item["slice"] for item in pkg["corpus"]}
     for r in spec["requirements"]:
         for v in r["verified_by"]:
             kind, _, ref = v.partition(":")
             if (kind == "scenario" and ref not in pkg["scenarios"]) or (kind == "eval" and ref not in slices) or kind not in ("scenario", "eval", "explore", "mutation"):
-                errors.append(f"{r['id']}: verification '{v}' does not resolve")
+                errors.append(f"{r['id']}: the check '{v}' doesn't exist")
         if r["criticality"] == "critical" and not any(v.startswith(("scenario:", "explore")) for v in r["verified_by"]):
-            errors.append(f"{r['id']}: critical requirement lacks a behavioural verification (scenario or explore)")
+            errors.append(f"{r['id']} is critical, so it needs a scenario or fault exploration among its checks")
     covered = {rid for w in spec["work_items"] for rid in w["satisfies"]}
-    errors += [f"work items reference unknown requirement {rid}" for rid in sorted(covered - req_ids)]
-    errors += [f"{rid}: not delivered by any work item" for rid in sorted(req_ids - covered)]
+    errors += [f"a work item refers to the unknown requirement {rid}" for rid in sorted(covered - req_ids)]
+    errors += [f"{rid} isn't delivered by any work item" for rid in sorted(req_ids - covered)]
     for sid, s in pkg["scenarios"].items():
-        errors += [f"scenario {sid}: unknown requirement {rid}" for rid in s.get("requirements", []) if rid not in req_ids]
+        errors += [f"scenario {sid} refers to the unknown requirement {rid}" for rid in s.get("requirements", []) if rid not in req_ids]
     return errors
 
 
@@ -219,31 +224,31 @@ def check_composition(pkg: dict, registry: dict, universes: dict) -> list[str]:
     for name in p["enrichment"]:
         c = registry.get(name)
         if c is None or c.stage != "enrichment":
-            errors.append(f"enrichment '{name}' is not a registered enrichment component")
+            errors.append(f"'{name}' isn't a registered enrichment component")
             continue
-        errors += [f"'{name}' requires '{t}' but no earlier enrichment provides it" for t in sorted(c.requires - have)]
+        errors += [f"'{name}' needs '{t}', but no earlier enrichment provides it" for t in sorted(c.requires - have)]
         have |= c.provides
     universe = p["parser"]["universe"]
     if universe not in universes:
-        errors.append(f"parser universe '{universe}' has no reference data")
+        errors.append(f"the parser universe '{universe}' has no reference data")
     parser = registry.get(p["parser"]["component"])
     if parser is None or parser.stage != "parser":
-        errors.append(f"parser '{p['parser']['component']}' is not a registered parser")
+        errors.append(f"'{p['parser']['component']}' isn't a registered parser")
     else:
         needed = {t.replace("{universe}", universe) for t in parser.requires}
-        errors += [f"parser requires '{t}' but the enrichment chain does not provide it" for t in sorted(needed - have)]
+        errors += [f"the parser needs '{t}', but no enrichment provides it" for t in sorted(needed - have)]
     for out in p["outputs"]:
         c = registry.get(out["component"])
         if c is None or c.stage != "converter":
-            errors.append(f"output '{out['component']}' is not a registered converter")
+            errors.append(f"'{out['component']}' isn't a registered converter")
             continue
         if not out["destination"].startswith(f"{c.scheme}:"):
-            errors.append(f"'{out['component']}' produces {c.scheme} payloads but targets '{out['destination']}'")
+            errors.append(f"'{out['component']}' produces {c.scheme} messages, but the output goes to '{out['destination']}'")
         contract = pkg["contracts"].get(c.contract)
         if contract is None:
-            errors.append(f"'{out['component']}' produces '{c.contract}' but the package declares no such consumer contract")
+            errors.append(f"'{out['component']}' produces the format '{c.contract}', but the package has no contract for the format")
         else:
-            errors += [f"'{out['component']}' does not produce field '{f}' required by {c.contract}" for f in sorted(set(contract["required"]) - c.fields)]
+            errors += [f"'{out['component']}' doesn't produce the field '{f}', which {c.contract} requires" for f in sorted(set(contract["required"]) - c.fields)]
     return errors
 
 
@@ -251,21 +256,24 @@ def check_effects(pkg: dict, registry: dict, policy: dict) -> list[str]:
     p, errors = pkg["profile"], []
     desk = policy["desks"].get(p["desk"])
     if desk is None:
-        return [f"desk '{p['desk']}' is not authorised by policy"]
+        return [f"the policy doesn't list the desk '{p['desk']}'"]
     for out in p["outputs"]:
         if out["destination"] not in desk["destinations"]:
-            errors.append(f"destination '{out['destination']}' is not permitted for desk {p['desk']}")
+            errors.append(f"the desk {p['desk']} isn't allowed to send to '{out['destination']}'")
     for name in [*p["enrichment"], p["parser"]["component"], *(o["component"] for o in p["outputs"])]:
         c = registry.get(name)
         if c is not None:
             extra = c.effects - set(policy["stage_effects"][c.stage])
-            errors += [f"'{name}' declares effect '{e}' not permitted at stage {c.stage}" for e in sorted(extra)]
+            errors += [f"'{name}' declares the effect '{e}', which isn't allowed at the {c.stage} stage" for e in sorted(extra)]
     return errors
 
 
 def check_interference(pkg: dict, others: list[dict], triggers, ChatMessage) -> dict:
-    """Exact on the bounded trigger language (rooms x firms x keyword-any); patterns fall back to
-    a concrete search over every known message and report residual uncertainty."""
+    """Check whether another desk could pick up the same message as the desk.
+
+    For triggers that only use rooms, firms and keywords, the check is exact. For triggers with a regular expression,
+    the check tries every known example message instead, and it reports any overlap that it can't rule out as uncertain.
+    """
     mine = pkg["profile"]["trigger"]
     collisions, uncertain = [], []
     for other in others:
@@ -276,7 +284,7 @@ def check_interference(pkg: dict, others: list[dict], triggers, ChatMessage) -> 
         a, b = set(mine["sender_firms"]), set(theirs["sender_firms"])
         firms = sorted(a & b) if "*" not in a and "*" not in b else sorted(b - {"*"} if "*" in a else a - {"*"}) or ["ANY-FIRM"]
         if not rooms or not firms:
-            continue  # disjoint scope: provably no shared message
+            continue  # The desks share no room or firm, so no message can reach both desks.
         words = [t["keywords_any"][0] for t in (mine, theirs) if t["keywords_any"]]
         witness = ChatMessage("witness", "witness", rooms[0], firms[0], " ".join(words))
         if triggers(mine, witness) and triggers(theirs, witness):
@@ -287,13 +295,17 @@ def check_interference(pkg: dict, others: list[dict], triggers, ChatMessage) -> 
         if hit:
             collisions.append({"with": other["behaviour_id"], "message": {"room": hit.room, "firm": hit.sender_firm, "text": hit.raw_text}})
         else:
-            uncertain.append(f"{other['behaviour_id']}: scopes overlap in rooms {rooms}; regex patterns prevent an exact disjointness proof and no known message collides")
+            uncertain.append(f"{other['behaviour_id']}: both desks listen in the rooms {rooms}. The regular expressions in the triggers prevent an exact check, "
+                             "and no known message reaches both desks.")
     status = "failed" if collisions else "inconclusive" if uncertain else "passed"
     return {"status": status, "collisions": collisions, "uncertain": uncertain}
 
 
 def required_obligations(pkg: dict, policy: dict) -> list[str]:
-    """Derived from protected policy + the package, never from a list the candidate supplies."""
+    """Return the checks that the release must pass.
+
+    The list comes from the protected policy and the package, and never from a list that the builder supplies.
+    """
     out = []
     for ob in policy["obligations"]:
         out += [f"scenario:{sid}" for sid in sorted(pkg["scenarios"])] if ob == "scenarios" else [ob]

@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Domain mutation testing: does the behaviour's suite reject plausible wrong implementations?
+"""Mutation testing, which checks that the tests of a desk catch realistic wrong versions of the engine.
 
-Mutants are business faults (lost idempotency, reactivated cancellations, inverted sides,
-wrong instrument mapping), not arithmetic noise. A mutant applies only when its file is in
-the behaviour's runtime closure. A mutant whose target text no longer exists is *stale*:
-the obligation reports an error (fail-closed) instead of silently shrinking the suite.
+Each mutant is a business fault, e.g., a swapped side, a wrong bond or a cancelled RFQ that becomes active again. A
+mutant only applies when the desk runs the file that the mutant changes. If the text that a mutant looks for no
+longer exists, the mutant is stale, and the check reports an error, so the set of mutants can't shrink without
+anyone noticing.
 """
 
 import shutil
@@ -27,20 +27,30 @@ class Mutant:
 
 
 MUTANTS = (
-    Mutant("late-ack-reactivates", "runtime/engine.py", 'elif row[0] != "PENDING_ACK":', 'elif row[0] == "ACTIVE":', "a late trader ack reactivates a cancelled RFQ"),
-    Mutant("recovery-republishes", "runtime/engine.py", "SET state='UNKNOWN' WHERE state='IN_FLIGHT'", "SET state='PENDING' WHERE state='IN_FLIGHT'", "recovery blindly re-publishes effects of unknown outcome"),
-    Mutant("raw-text-overwritten", "runtime/engine.py", "UPDATE inbox SET derived_text=?, behaviour_id=?", "UPDATE inbox SET raw_text=?, behaviour_id=?", "enrichment overwrites the preserved raw text"),
+    Mutant("late-ack-reactivates", "runtime/engine.py", 'elif row[0] != "PENDING_ACK":', 'elif row[0] == "ACTIVE":',
+           "A late reply from a trader reactivates a cancelled RFQ."),
+    Mutant("recovery-republishes", "runtime/engine.py", "SET state='UNKNOWN' WHERE state='IN_FLIGHT'", "SET state='PENDING' WHERE state='IN_FLIGHT'",
+           "After a crash, recovery resends messages that may already have been sent."),
+    Mutant("raw-text-overwritten", "runtime/engine.py", "UPDATE inbox SET derived_text=?, behaviour_id=?", "UPDATE inbox SET raw_text=?, behaviour_id=?",
+           "Enrichment overwrites the original text of the message."),
     Mutant(
         "transport-ack-before-commit", "runtime/engine.py", "        with self.db:\n            seen =",
-        "        transport_ack(msg.msg_id)\n        with self.db:\n            seen =", "transport acked before durable processing (loss on crash)",
+        "        transport_ack(msg.msg_id)\n        with self.db:\n            seen =", "The engine confirms a message before it saves it, so a crash loses the message.",
     ),
-    Mutant("follow-up-targets-oldest", "runtime/engine.py", "ORDER BY seq DESC LIMIT 1", "ORDER BY seq ASC LIMIT 1", "amend/cancel applied to the oldest open RFQ"),
-    Mutant("pin-dropped", "runtime/engine.py", "if self._latest_open(conversation_id, rel.behaviour_id):", "if False:", "in-flight conversations not pinned to their release"),
-    Mutant("size-cap-bypassed", "runtime/decide.py", 'cfg["min_size"] <= size <= cfg["max_size"]', 'cfg["min_size"] <= size', "maximum size limit not enforced"),
-    Mutant("side-inverted", "runtime/components/convert.py", '"side": d.side,', '"side": {"BID": "OFFER", "OFFER": "BID"}.get(d.side, d.side),', "outbound RFQ side inverted"),
-    Mutant("quoted-history-kept", "runtime/components/common.py", 'return _QUOTED.sub("", text)', "return text", "quoted history re-read as a new request"),
-    Mutant("gilt-32s-mismapped", "runtime/components/gilt.py", '("ukt-4.25-2032", "4.25", "32")', '("ukt-3.75-2038", "4.25", "32")', "2032 gilt slang mapped to the 2038 bond"),
-    Mutant("ust-tens-mismapped", "runtime/components/ust.py", '("ust10y", r"10s|10y|10yr|tens")', '("ust30y", r"10s|10y|10yr|tens")', "10-year slang mapped to the 30-year"),
+    Mutant("follow-up-targets-oldest", "runtime/engine.py", "ORDER BY seq DESC LIMIT 1", "ORDER BY seq ASC LIMIT 1",
+           "A change or a cancellation applies to the oldest open RFQ."),
+    Mutant("pin-dropped", "runtime/engine.py", "if self._latest_open(conversation_id, rel.behaviour_id):", "if False:",
+           "Open conversations don't stay on their release."),
+    Mutant("size-cap-bypassed", "runtime/decide.py", 'cfg["min_size"] <= size <= cfg["max_size"]', 'cfg["min_size"] <= size',
+           "The engine doesn't enforce the maximum size."),
+    Mutant("side-inverted", "runtime/components/convert.py", '"side": d.side,', '"side": {"BID": "OFFER", "OFFER": "BID"}.get(d.side, d.side),',
+           "The outgoing RFQ has the opposite side."),
+    Mutant("quoted-history-kept", "runtime/components/common.py", 'return _QUOTED.sub("", text)', "return text",
+           "The engine reads quoted history as a new request."),
+    Mutant("gilt-32s-mismapped", "runtime/components/gilt.py", '("ukt-4.25-2032", "4.25", "32")', '("ukt-3.75-2038", "4.25", "32")',
+           "The engine reads the slang for the 2032 gilt as the 2038 bond."),
+    Mutant("ust-tens-mismapped", "runtime/components/ust.py", '("ust10y", r"10s|10y|10yr|tens")', '("ust30y", r"10s|10y|10yr|tens")',
+           "The engine reads the slang for the 10-year note as the 30-year bond."),
 )
 
 

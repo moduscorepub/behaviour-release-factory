@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Release store and controlled activation.
+"""Store releases and activate them in a controlled way.
 
-The runtime configuration store is played by SQLite here with the semantics the
-design needs: immutable releases, a single-row active pointer changed only by
-compare-and-swap on its generation, adoption records per instance, and revocation on rollback.
-Rollback stops future use of a release; it cannot retract effects already published, so it
-reports them for compensation.
+The example uses SQLite as the configuration store of the engine, and nobody can change a
+release after it's stored. A single row for each desk and mode points at the active release.
+The row only changes if its generation number still has the value that the caller read, so
+two people can't overwrite each other's switch. Each engine instance also records the
+releases that it loaded.
+
+A rollback revokes a release and stops its future use. The rollback can't take back the
+messages that the release already sent, so it lists them for the team to correct.
 """
 
 import json
@@ -36,12 +39,12 @@ def now() -> str:
 
 
 class Conflict(Exception):
-    """The active pointer changed since it was read (compare-and-swap lost)."""
+    """Someone else switched the active release after the caller read the generation number."""
 
 
 class Refused(Exception):
     def __init__(self, decision: dict):
-        super().__init__(f"gate outcome {decision['outcome']}")
+        super().__init__(f"the gate answered {decision['outcome']}")
         self.decision = decision
 
 
@@ -52,7 +55,7 @@ class Store:
         self.db.executescript(SCHEMA)
 
     def pointer(self, behaviour: str, mode: str) -> tuple[str, int] | None:
-        """(digest, generation); digest '' means deliberately inactive."""
+        """Return the digest and the generation number. An empty digest means that the desk was switched off on purpose."""
         row = self.db.execute("SELECT digest, generation FROM pointers WHERE behaviour_id=? AND mode=?", (behaviour, mode)).fetchone()
         return (row[0], row[1]) if row else None
 
@@ -84,12 +87,12 @@ class Store:
                 try:
                     self.db.execute("INSERT INTO pointers VALUES (?,?,?,1)", (behaviour, mode, digest))
                 except sqlite3.IntegrityError:
-                    raise Conflict(f"{behaviour}/{mode} was activated concurrently") from None
+                    raise Conflict(f"someone else activated {behaviour}/{mode} at the same time") from None
             elif self.db.execute(
                 "UPDATE pointers SET digest=?, generation=generation+1 WHERE behaviour_id=? AND mode=? AND generation=?",
                 (digest, behaviour, mode, expected_generation),
             ).rowcount != 1:
-                raise Conflict(f"{behaviour}/{mode} is no longer at generation {expected_generation}")
+                raise Conflict(f"{behaviour}/{mode} has moved past generation {expected_generation}, because someone else switched it")
             generation = expected_generation + 1
             self.db.execute("INSERT INTO history(behaviour_id, mode, generation, digest, action, actor, at) VALUES (?,?,?,?,?,?,?)",
                             (behaviour, mode, generation, digest, action, actor, now()))
@@ -109,9 +112,9 @@ class Store:
         return json.loads(row[0]) if row else None
 
 
-# ---- activation ------------------------------------------------------------------------------
+# Activation and rollback of releases.
 def activate(ws: Workspace, behaviour: str, mode: str, actor: str, expect_generation: int | None = None) -> dict:
-    from factory import gate  # the gate is re-run at activation time: stored verdicts are not trusted
+    from factory import gate  # Activation runs the gate again, because it doesn't trust a stored decision.
 
     store = Store(ws)
     decision = gate.evaluate(ws, behaviour, store)
@@ -156,18 +159,21 @@ def rollback(ws: Workspace, behaviour: str, actor: str) -> dict:
         "behaviour": behaviour, "revoked": bad, "now_live": target or None, "generation": new_generation,
         "published_not_retracted": published,
         "pinned_conversations_moved_to_active": pinned,
-        "note": "Rollback stops future use only. Published effects above were not retracted; compensate downstream where supported.",
+        "note": "The rollback only stops future use of the release. It didn't take back the messages listed above, so correct them in the receiving systems where you can.",
     }
 
 
-# ---- runtime adoption ------------------------------------------------------------------------
+# Loading releases into engine instances.
 def compatible(pkg: dict, runtime_root: Path) -> list[str]:
-    """Files whose deployed code differs from the code the release was qualified against."""
+    """Return the files whose deployed code differs from the code that the release was checked against."""
     return [f for f, d in pkg["manifest"]["runtime"]["files"].items() if not (runtime_root / f).exists() or sha((runtime_root / f).read_bytes()) != d]
 
 
 class StoreReleases:
-    """Engine release source backed by the store: adopts pointers whose runtime binding holds."""
+    """Give the engine its releases from the store.
+
+    The class only loads a release if the deployed engine code matches the code that the release was checked against.
+    """
 
     def __init__(self, store: Store, mode: str, runtime_root: Path, instance: str):
         from factory.lab import release_of
@@ -180,7 +186,7 @@ class StoreReleases:
         for behaviour, (digest, generation, source) in sorted(wanted.items()):
             pkg = store.release(digest)[0]
             drift = compatible(pkg, runtime_root)
-            store.record_adoption(instance, behaviour, source, digest, generation, f"rejected: runtime drift in {drift}" if drift else "adopted")
+            store.record_adoption(instance, behaviour, source, digest, generation, f"rejected, because the engine code differs in {drift}" if drift else "adopted")
             if not drift:
                 rel = release_of(pkg, digest)
                 self._active.append(rel)
@@ -194,14 +200,16 @@ class StoreReleases:
         if digest not in self._by_digest:
             found = self.store.release(digest)
             if found is None or found[1] or compatible(found[0], self.runtime_root):
-                return None  # unknown, revoked or incompatible: never honoured (pins fall back to active)
+                return None  # The engine never uses an unknown, revoked or incompatible release, so a conversation on the release moves to the active release.
             self._by_digest[digest] = self._release_of(found[0], digest)
         return self._by_digest[digest]
 
 
 def feed(ws: Workspace, instance: str, events: list[dict]) -> dict:
-    """Run the deployed runtime over inbound events: live releases publish to the outbound sink,
-    shadow releases run in an isolated engine whose only publisher is the shadow sink."""
+    """Run the deployed engine over incoming chat events.
+
+    Live releases write their messages to the outbound file. Shadow releases run in a separate engine, which can only write to the shadow file.
+    """
     from factory.lab import Harness, contracts_of
 
     store = Store(ws)
@@ -213,7 +221,7 @@ def feed(ws: Workspace, instance: str, events: list[dict]) -> dict:
                                     "rfq_id": effect.rfq_id, "payload": effect.payload, "release": effect.release_digest}) + "\n")
         return publish
 
-    with store.db:  # the instance reloads its whole release set: its adoption record is replaced, not accumulated
+    with store.db:  # The instance loads all of its releases again, so its old record of loaded releases is replaced.
         store.db.execute("DELETE FROM adoption WHERE instance_id=?", (instance,))
     runs = {}
     modes = ["live"] + (["shadow"] if store.pointers("shadow") else [])
@@ -233,7 +241,7 @@ def feed(ws: Workspace, instance: str, events: list[dict]) -> dict:
 def shadow_report(ws: Workspace, instance: str) -> dict:
     live_db, shadow_db = ws.state / f"runtime-{instance}.db", ws.state / f"runtime-{instance}-shadow.db"
     if not shadow_db.exists():
-        return {"instance": instance, "divergences": [], "note": "no shadow run recorded"}
+        return {"instance": instance, "divergences": [], "note": "No shadow run has been recorded."}
     q = "SELECT msg_id, COALESCE(behaviour_id,'-') || ' ' || COALESCE(outcome,'-') FROM inbox"
     live, shadow = dict(sqlite3.connect(live_db).execute(q)), dict(sqlite3.connect(shadow_db).execute(q))
     divergences = [{"msg_id": m, "live": live.get(m), "shadow": shadow.get(m)} for m in sorted(live.keys() | shadow.keys()) if live.get(m) != shadow.get(m)]

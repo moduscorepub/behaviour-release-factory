@@ -1,50 +1,50 @@
-# Git-owned executable representation of the approved Confluence intent.
+# The approved requirements of the desk, and the checks that verify each requirement.
 spec_id: gilt-rfq-ldn
 revision: 1
 source:
   confluence_page_id: "100002"
   page_version: 3
-  content_digest: "sha256:44191c51b7cffd160c2a38a243d4ba2e795aa84d71c5c65a188ffc9345b840ec"
+  content_digest: "sha256:d8a392d4159580c846fb8c04965af789a45e8303735d003bc0f33ecd18d7a88d"
 
 requirements:
   - id: GILT-RFQ-001
-    statement: A client price request on a conventional gilt creates exactly one RFQ with the requested side, gilt and nominal.
+    statement: Each client price request for one of the gilts of the desk creates exactly one RFQ, with the side, the gilt and the amount that the client asked for.
     criticality: critical
     verified_by: [scenario:new-rfq, eval:standard, eval:shorthand]
   - id: GILT-RFQ-002
-    statement: Once cancelled, a delayed or replayed trader acknowledgement must not reactivate or re-route the RFQ.
+    statement: Once an RFQ is cancelled, a late or repeated reply from a trader must not reactivate the RFQ or send it anywhere.
     criticality: critical
     verified_by: [scenario:cancel-then-late-ack, explore]
   - id: GILT-RFQ-003
-    statement: Redelivery, reconnects and restarts neither duplicate external effects nor lose client messages.
+    statement: After a repeated delivery, a reconnection or a restart, the engine never sends anything twice and never loses a client message.
     criticality: critical
     verified_by: [scenario:duplicate-delivery, scenario:crash-recovery, explore]
   - id: GILT-RFQ-004
-    statement: Quoted chat history is never interpreted as a new request.
+    statement: Quoted chat history is never treated as a new request.
     criticality: critical
     verified_by: [scenario:quoted-history, eval:quoted_history]
   - id: GILT-RFQ-005
-    statement: Nominal outside 1m-250m GBP, or ambiguous side, size or gilt, produces no RFQ.
+    statement: The engine doesn't create an RFQ if the amount is outside the range of 1 million to 250 million pounds, or if the side, the amount or the gilt is unclear.
     criticality: critical
     verified_by: [scenario:oversize-abstains, eval:ambiguous]
   - id: GILT-RFQ-006
-    statement: Amendments and cancellations apply to the client's most recent open RFQ.
+    statement: Changes and cancellations apply to the most recent open RFQ of the client.
     criticality: standard
     verified_by: [scenario:amend-latest, eval:amend_cancel]
   - id: GILT-RFQ-007
-    statement: Requests for other products in the gilt rooms, and any message in the UST rooms, are not gilt RFQs.
+    statement: Requests for other products in the gilt rooms aren't gilt RFQs, and no message in the Treasury rooms is a gilt RFQ.
     criticality: critical
     verified_by: [scenario:other-desk-ignored, eval:other_desk]
   - id: GILT-RFQ-008
-    statement: A trader acknowledgement posts one LIVE suggestion to the gilt trader chat.
+    statement: When a trader picks up an RFQ, the engine posts one LIVE message in the chat of the gilt traders.
     criticality: standard
     verified_by: [scenario:ack-posts-suggestion]
 
 work_items:
   - id: gilt-onboarding
-    summary: Onboard LDN gilt desk RFQ capture
+    summary: Set up the London gilt desk to create RFQs from client chat
     satisfies: [GILT-RFQ-001, GILT-RFQ-004, GILT-RFQ-005, GILT-RFQ-007]
     jira_key: DESK-201
   - id: gilt-lifecycle
-    summary: Safe gilt RFQ lifecycle (ack, amend, cancel, recovery)
+    summary: Handle the pick-up, changes, cancellation and recovery of gilt RFQs safely
     satisfies: [GILT-RFQ-002, GILT-RFQ-003, GILT-RFQ-006, GILT-RFQ-008]

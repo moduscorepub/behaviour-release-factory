@@ -13,7 +13,7 @@
   "origin": {
     "found_by": "explore",
     "violations": [
-      "I1 duplicate external effect: rfq_new for g0 to bus:rfq/ldn/gilts published 2x"
+      "I1 duplicate message: rfq_new for g0 was sent to bus:rfq/ldn/gilts 2 times"
     ]
   },
   "requirements": [],

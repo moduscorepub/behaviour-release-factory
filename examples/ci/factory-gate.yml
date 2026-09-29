@@ -1,10 +1,11 @@
-# Deployment template: copy to .github/workflows/ in the repository that holds your behaviours.
-# Required check for the protected branch. merge_group makes the evidence bind to
-# (target branch + queued changes), not a stale PR head.
+# The workflow is a template for running the release gate in your own repository.
+# Copy the file to .github/workflows/, and make its checks required for your main branch.
+# The workflow also runs in the GitHub merge queue, so the results apply to the exact code that is merged.
+# The merged code includes any changes that are queued ahead of it, which an older pull request branch may not have.
 #
-# Needs a protected "factory-authority" environment holding:
-#   FACTORY_TRUST_TARBALL  base64 tar.gz of trust/ (pins.json, approvals.json) and state/ (release store)
-#   FACTORY_RUNNER_KEY     hex runner key (never stored in the repository)
+# The workflow needs a protected GitHub environment called "factory-authority" with the following secrets:
+#   FACTORY_TRUST_TARBALL holds the trust/ and state/ folders, packed with tar and gzip and then encoded as base64.
+#   FACTORY_RUNNER_KEY holds the signing key in hexadecimal. Never store the key in the repository.
 name: factory-gate
 
 on:
@@ -17,7 +18,7 @@ permissions:
 
 concurrency:
   group: factory-gate-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}  # never cancel merge-queue runs
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}  # Only runs for pull requests are cancelled, so runs in the merge queue always finish.
 
 jobs:
   builder-sandbox:
@@ -29,18 +30,19 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Restore authority material (pins, approvals; no key needed here)
+      - name: Restore the approvals and the policy hashes, which the sandbox check needs without the signing key
         run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
         env:
           FACTORY_TRUST_TARBALL: ${{ secrets.FACTORY_TRUST_TARBALL }}
-      - name: Install openshell-prover v0.1.2 (static musl build, checksum-verified)
+      - name: Install openshell-prover v0.1.2 and verify its checksum
         run: |
           base=https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2
           asset=openshell-prover-x86_64-unknown-linux-musl.tar.gz
           curl -fsSLO "$base/$asset" && curl -fsSLO "$base/openshell-prover-checksums-sha256.txt"
           grep " \*\?$asset\$" openshell-prover-checksums-sha256.txt | sha256sum -c -
           mkdir -p .tools/bin && tar -xzf "$asset" -C .tools/bin openshell-prover
-      - run: uv run --frozen python -m factory sandbox-check
+      - name: Check that the agent sandbox stays within its approved limits
+        run: uv run --frozen python -m factory sandbox-check
 
   gate:
     name: gate
@@ -51,19 +53,19 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Restore authority material and release state
+      - name: Restore the approvals, the policy hashes and the release history
         run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
         env:
           FACTORY_TRUST_TARBALL: ${{ secrets.FACTORY_TRUST_TARBALL }}
-      - name: Compile, evidence and gate every behaviour in the candidate
+      - name: Compile, check and gate every desk in the change
         env:
-          FACTORY_RUNNER_KEY: ${{ secrets.FACTORY_RUNNER_KEY }} # parent only; the worker environment is scrubbed of FACTORY_*
+          FACTORY_RUNNER_KEY: ${{ secrets.FACTORY_RUNNER_KEY }} # The factory removes the variable before it starts the worker process that runs the checks.
         run: |
           status=0
           for dir in behaviours/*/; do
             b=$(basename "$dir")
-            uv run --frozen python -m factory compile "$b" || true   # diagnostics become failed static obligations
-            uv run --frozen python -m factory evidence "$b" || true  # failures are recorded, then judged by the gate
+            uv run --frozen python -m factory compile "$b" || true   # A compile problem is recorded as a failed check.
+            uv run --frozen python -m factory evidence "$b" || true  # The gate judges any failed checks.
             uv run --frozen python -m factory gate "$b" > "gate-$b.json" || status=1
           done
           exit $status

@@ -1,23 +1,23 @@
 name: Feature request
-description: Propose a new capability, obligation, adapter or invariant.
+description: Suggest a new check, connector, business rule or other feature.
 labels: [enhancement]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What delivery or assurance problem does this solve, and what do you do today instead?
+      label: The problem
+      description: Describe the problem that the feature would solve, and how you handle the problem today.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed behaviour
-      description: The externally observable behaviour, including how the gate should treat it (PASS / FAIL / INCONCLUSIVE).
+      label: What you would like to happen
+      description: Describe what users would see, and if the gate is involved, say whether the gate should answer PASS, FAIL or INCONCLUSIVE.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
-      label: How it would be verified
-      description: Which scenario, obligation or adversarial case would prove it works and cannot be bypassed?
+      label: How we would know that it works
+      description: Name the scenario, check or qualify-gate case that would show that the feature works and that nobody can get around it.

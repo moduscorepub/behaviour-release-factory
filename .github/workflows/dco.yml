@@ -1,4 +1,4 @@
-# Every commit in a pull request must carry a Signed-off-by trailer matching its author (DCO 1.1).
+# The workflow checks that every commit in a pull request has a sign-off line that matches its author, as CONTRIBUTING.md describes.
 name: dco
 
 on:
@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check sign-off on every commit
+      - name: Check the sign-off on every commit
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -28,9 +28,9 @@ jobs:
           missing=0
           for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
             author="$(git log -1 --format='%an <%ae>' "$c")"
-            case "$author" in *'[bot]@users.noreply.github.com>') continue ;; esac  # GitHub Apps (e.g. Dependabot) cannot sign off
+            case "$author" in *'[bot]@users.noreply.github.com>') continue ;; esac  # Bots such as Dependabot can't sign off, so the check skips them.
             if ! git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$c" | grep -qxF "$author"; then
-              echo "::error::commit $c lacks 'Signed-off-by: $author' (see CONTRIBUTING.md)"
+              echo "::error::Commit $c needs the line 'Signed-off-by: $author', and CONTRIBUTING.md explains how to add it."
               missing=1
             fi
           done

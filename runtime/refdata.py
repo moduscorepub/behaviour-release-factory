@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Instrument reference data per universe (id → currency)."""
+"""Reference data for each universe, which maps each instrument ID to its currency."""
 
 UNIVERSES: dict[str, dict[str, str]] = {
     "ust": {"UST2Y": "USD", "UST5Y": "USD", "UST10Y": "USD", "UST30Y": "USD"},

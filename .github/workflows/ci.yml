@@ -1,4 +1,4 @@
-# Self-contained verification of the factory itself: no secrets, ephemeral trust.
+# The workflow checks the project itself, and it needs no secrets because it creates a temporary signing key for each run.
 name: ci
 
 on:
@@ -23,16 +23,25 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Check the punctuation rules from the plain-writing skill
+        run: |
+          # Rules 15 and 17 of .claude/skills/plain-writing/SKILL.md forbid en dashes, em dashes, middle dots and curly quotes.
+          # The check skips the skill folder, because the examples in the skill show the forbidden characters on purpose.
+          # The characters are written as UTF-8 bytes, so the check works in every version of bash and in every locale.
+          if git grep -n -I -F -e $'\xe2\x80\x93' -e $'\xe2\x80\x94' -e $'\xc2\xb7' -e $'\xe2\x80\x98' -e $'\xe2\x80\x99' -e $'\xe2\x80\x9c' -e $'\xe2\x80\x9d' -- . ':!.claude/skills/'; then
+            echo "::error::The lines above contain a dash, a middle dot or a curly quote, which rules 15 and 17 in .claude/skills/plain-writing/SKILL.md forbid."
+            exit 1
+          fi
       - name: Install dependencies
         run: uv sync --frozen
-      - name: Install openshell-prover v0.1.2 (static musl build, checksum-verified)
+      - name: Install openshell-prover v0.1.2 and verify its checksum
         run: |
           base=https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2
           asset=openshell-prover-x86_64-unknown-linux-musl.tar.gz
           curl -fsSLO "$base/$asset" && curl -fsSLO "$base/openshell-prover-checksums-sha256.txt"
           grep " \*\?$asset\$" openshell-prover-checksums-sha256.txt | sha256sum -c -
           mkdir -p .tools/bin && tar -xzf "$asset" -C .tools/bin openshell-prover
-      - name: Compile, prove and gate the example behaviours (ephemeral trust)
+      - name: Compile, check and gate both example desks
         run: |
           F="uv run --frozen python -m factory"
           $F trust-init
@@ -42,7 +51,7 @@ jobs:
             $F evidence "$b"
             $F gate "$b"
           done
-      - name: Builder sandbox is within the pinned boundary
+      - name: Check that the agent sandbox stays within its approved limits
         run: uv run --frozen python -m factory sandbox-check
-      - name: Gate qualification benchmark
+      - name: Test the gate itself with 22 prepared cases
         run: uv run --frozen python -m factory qualify-gate

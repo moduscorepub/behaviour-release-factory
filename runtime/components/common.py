@@ -1,8 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Desk-agnostic enrichment. Every enrichment is str -> str: it can only produce
-the current message's derived_text; raw_text is never reachable from here."""
+"""Enrichment steps that every desk can use.
+
+Every enrichment step takes text and returns text, so it can only produce the derived_text of the current message.
+The steps can't reach raw_text.
+"""
 
 import re
 
@@ -13,7 +16,7 @@ _MULT = {"mm": 10**6, "mio": 10**6, "mln": 10**6, "m": 10**6, "k": 10**3, "bn": 
 
 
 def strip_quoted_history(text: str) -> str:
-    """Drop quoted lines ("> ...") so amounts in history are never re-read."""
+    """Remove quoted lines, which start with ">", so the parser never reads the amounts in the history again."""
     return _QUOTED.sub("", text)
 
 
@@ -22,5 +25,5 @@ def normalise_whitespace(text: str) -> str:
 
 
 def expand_size_shorthand(text: str) -> str:
-    """25mm / 2.5m / 500k / 1bn -> sz=<integer notional>."""
+    """Turn amounts such as 25mm, 2.5m, 500k and 1bn into the sz= form, e.g., 25mm becomes sz=25000000."""
     return _SIZE.sub(lambda m: f"sz={round(float(m[1]) * _MULT[m[2]])}", text)

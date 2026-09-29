@@ -1,14 +1,18 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Atlassian adapters. Confluence owns approved intent; Jira is a projection of delivery state.
+"""Connect the factory to Confluence and Jira.
 
-- `confluence_snapshot` binds to an exact page version and records its content digest; the
-  spec compiler later refuses any intent that does not match that digest.
-- `jira_desired` derives each work item's state from protected facts (gate log, active
-  releases), never from "a linked PR merged". `jira_plan` reconciles desired vs actual Jira
-  state into idempotent operations keyed by a stable external-id label; it never rewrites
-  human-owned fields after creation. `jira_apply` executes the plan via Jira Cloud REST v3.
+Confluence holds the approved intent of each desk, and Jira shows the delivery state that the factory works out.
+
+- `confluence_snapshot` saves one exact version of a Confluence page and records the hash of its content. The
+  compiler later refuses any intent that doesn't match the hash.
+- `jira_desired` works out the state of each work item from records that builders can't change, i.e., the gate
+  log and the active releases. A merged pull request on its own doesn't change the state of a work item.
+- `jira_plan` compares the desired state with the actual Jira state and lists the changes to make. Each change
+  finds its issue by a label that holds a fixed ID, so running the plan twice has the same effect as running it
+  once. The plan never rewrites the fields that people own after the issue is created.
+- `jira_apply` makes the changes through version 3 of the Jira Cloud REST API.
 """
 
 import base64
@@ -37,7 +41,7 @@ def _request(base: str, path: str, method: str = "GET", body: dict | None = None
 def confluence_snapshot(base: str, page_id: str, version: int, out: Path) -> dict:
     page = _request(base, f"/wiki/api/v2/pages/{page_id}?body-format=storage&version={version}")
     if page["version"]["number"] != version:
-        raise ValueError(f"Confluence returned version {page['version']['number']}, not the approved version {version}")
+        raise ValueError(f"Confluence returned version {page['version']['number']}, but the approved version is {version}")
     body = page["body"]["storage"]["value"]
     out.write_text(body)
     return {"confluence_page_id": page_id, "page_version": version, "content_digest": sha(body.encode()), "title": page["title"]}
@@ -56,15 +60,15 @@ def jira_desired(ws: Workspace) -> list[dict]:
         for w in spec["work_items"]:
             established = gate and all(gate["requirements"].get(r) == "established" for r in w["satisfies"])
             if live and digest(live["spec"]) == digest(spec):
-                state, why = "activated", f"live release {store.pointer(behaviour, 'live')[0][:19]} carries this revision"
+                state, why = "activated", f"the live release {store.pointer(behaviour, 'live')[0][:19]} uses the current revision of the requirements"
             elif gate and current and gate["candidate_digest"] == digest(current) and gate["outcome"] == "PASS" and established:
-                state, why = "qualified", "gate PASS on the current candidate; awaiting activation"
+                state, why = "qualified", "the gate answered PASS for the current package, and the package is waiting for activation"
             elif gate and gate["outcome"] == "FAIL":
                 state, why = "blocked", "; ".join(gate["reasons"][:2])
             elif current:
-                state, why = "in_progress", f"candidate compiled; gate {gate['outcome'] if gate else 'not run'}"
+                state, why = "in_progress", f"the package is compiled, and the last gate answer is {gate['outcome']}" if gate else "the package is compiled, but the gate hasn't run yet"
             else:
-                state, why = "todo", "not compiled"
+                state, why = "todo", "the desk isn't compiled yet"
             items.append({"external_id": f"factory.{spec['spec_id']}.{w['id']}", "jira_key": w.get("jira_key"), "summary": w["summary"], "state": state, "why": why})
     return items
 
@@ -107,8 +111,8 @@ def jira_apply(base: str, project: str, ops: list[dict]) -> list[dict]:
             continue
         transitions = _request(base, f"/rest/api/3/issue/{op['key']}/transitions")["transitions"]
         match = next((t for t in transitions if t["to"]["name"] == op["to"]), None)
-        if match is None:  # never force a workflow; surface it
-            results.append({"op": "transition", "key": op["key"], "result": f"no workflow transition to '{op['to']}'"})
+        if match is None:  # The plan never forces a Jira workflow, so it reports the missing transition instead.
+            results.append({"op": "transition", "key": op["key"], "result": f"the Jira workflow has no transition to '{op['to']}'"})
             continue
         _request(base, f"/rest/api/3/issue/{op['key']}/transitions", "POST", {"transition": {"id": match["id"]}})
         results.append({"op": "transition", "key": op["key"], "result": op["to"]})

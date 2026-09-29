@@ -1,16 +1,24 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Chat -> RFQ engine with durable inbox/outbox and an explicit external-effect protocol.
+"""The chat parsing engine, which turns client chat messages into RFQs.
 
-Protocol (the properties the factory's lab challenges):
-- input identity: inbox keyed by transport msg_id; duplicates are recorded, never reprocessed;
-- the transport is acked only after the processing transaction commits;
-- effect identity derives from the input (msg / trader ack), never from the release;
-- effects go PENDING -> IN_FLIGHT -> SENT; after a crash IN_FLIGHT becomes UNKNOWN
-  (published-but-unrecorded is indistinguishable from lost) and is never blindly retried;
-- a conversation with open RFQs stays pinned to the release that opened them;
-- a trader ack only activates a PENDING_ACK RFQ: late acks never reactivate a cancellation.
+The engine saves every incoming message in an inbox table and every outgoing message in an outbox table. The lab in
+the factory tests the engine against the following rules:
+
+- Incoming messages
+  - The engine identifies each message by its msg_id from the chat platform, so it records a duplicate and never
+    processes it twice.
+  - The engine confirms a message to the chat platform only after the database transaction for the message commits.
+- Outgoing messages
+  - The ID of each outgoing message comes from the incoming message or the trader reply that caused it, and never
+    from the release.
+  - Outgoing messages go from PENDING to IN_FLIGHT to SENT. After a crash, an IN_FLIGHT message becomes UNKNOWN,
+    because nobody can tell whether it was sent, and the engine never resends it automatically.
+- RFQs and releases
+  - A conversation with open RFQs stays on the release that opened them.
+  - A trader reply only activates an RFQ that waits in the PENDING_ACK state, so a late reply never reactivates a
+    cancelled RFQ.
 """
 
 import hashlib
@@ -40,7 +48,7 @@ CREATE TABLE IF NOT EXISTS pins(conversation_id TEXT NOT NULL, behaviour_id TEXT
 class Releases(Protocol):
     def active(self) -> list[Release]: ...
 
-    def get(self, digest: str) -> Release | None:  # None when unknown or revoked
+    def get(self, digest: str) -> Release | None:  # Returns None for an unknown or revoked release.
         ...
 
 
@@ -57,10 +65,10 @@ def triggers(trigger: dict, msg: ChatMessage) -> bool:
 class Engine:
     def __init__(self, db: sqlite3.Connection, releases: Releases, publish: Callable[[Effect], None], instance_id: str = "i0"):
         self.db, self.releases, self.publish, self.instance_id = db, releases, publish, instance_id
-        self.crash_points: set[str] = set()  # fault injection hooks, empty in production
+        self.crash_points: set[str] = set()  # The lab adds crash points here to test recovery, and the set is empty in production.
         db.executescript(SCHEMA)
 
-    # ---- inbound -------------------------------------------------------------------------
+    # Incoming messages.
     def on_chat(self, msg: ChatMessage, transport_ack: Callable[[str], None]) -> None:
         with self.db:
             seen = self.db.execute("SELECT 1 FROM inbox WHERE msg_id=?", (msg.msg_id,)).fetchone()
@@ -90,7 +98,7 @@ class Engine:
                 self._attempt(source, rel.digest if rel else None, "rfq_live" if rel else "ack_no_release")
         self.dispatch()
 
-    # ---- processing ----------------------------------------------------------------------
+    # Processing.
     def _process(self, msg: ChatMessage) -> None:
         self.db.execute(
             "INSERT INTO inbox(msg_id, conversation_id, room, sender_firm, raw_text) VALUES (?,?,?,?,?)",
@@ -103,14 +111,14 @@ class Engine:
             self._attempt(msg.msg_id, None, rel)
             return
         cfg = rel.profile
-        try:  # recovery boundary: a faulty component quarantines this message instead of wedging redelivery
+        try:  # If a component fails, the engine records an error for the message, so redelivery doesn't get stuck on it.
             derived = msg.raw_text
             for name in cfg["enrichment"]:
                 derived = REGISTRY[name].fn(derived)
             self.db.execute("UPDATE inbox SET derived_text=?, behaviour_id=? WHERE msg_id=?", (derived, rel.behaviour_id, msg.msg_id))
             parsed = REGISTRY[cfg["parser"]["component"]].fn(derived, cfg["parser"]["universe"])
             result = decide(parsed, cfg["parser"], msg.msg_id, self._latest_open(msg.conversation_id, rel.behaviour_id))
-        except Exception as e:  # message recorded with a classified outcome; details stay out of outputs
+        except Exception as e:  # The engine records the type of error as the outcome, and it keeps the details out of outgoing messages.
             result = f"error:{type(e).__name__}"
         if isinstance(result, Decision):
             self._apply(rel, msg.conversation_id, result)
@@ -140,7 +148,7 @@ class Engine:
         return pinned or next((r for r in self.releases.active() if r.behaviour_id == behaviour_id), None)
 
     def _repin(self, conversation_id: str, rel: Release) -> None:
-        """Pin while RFQs are open; adopt newer releases only at the no-open-RFQ boundary."""
+        """Keep the conversation on its release while it has open RFQs, and move it to a newer release only when it has none."""
         if self._latest_open(conversation_id, rel.behaviour_id):
             self.db.execute("INSERT OR IGNORE INTO pins VALUES (?,?,?)", (conversation_id, rel.behaviour_id, rel.digest))
         else:
@@ -182,9 +190,9 @@ class Engine:
             (source_id, self.instance_id, release_digest, outcome),
         )
 
-    # ---- outbound ------------------------------------------------------------------------
+    # Outgoing messages.
     def dispatch(self) -> None:
-        """Publish PENDING effects through the capability check (release-permitted destinations only)."""
+        """Send the PENDING messages, but only to destinations that the release is allowed to use."""
         while row := self.db.execute(
             "SELECT effect_id, rfq_id, kind, destination, payload, release_digest FROM outbox WHERE state='PENDING' ORDER BY seq LIMIT 1"
         ).fetchone():
@@ -202,7 +210,7 @@ class Engine:
                 self.db.execute("UPDATE outbox SET state='SENT' WHERE effect_id=?", (effect.effect_id,))
 
     def recover(self) -> None:
-        """Startup after a crash: never blindly re-publish an effect whose outcome is unknown."""
+        """Start again after a crash, and never resend a message whose outcome is unknown."""
         with self.db:
             self.db.execute("UPDATE outbox SET state='UNKNOWN' WHERE state='IN_FLIGHT'")
         self.dispatch()

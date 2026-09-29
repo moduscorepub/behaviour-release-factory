@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Deterministic decision layer: parser output is a proposal, this decides what it may cause."""
+"""Decide what a parsed message may cause.
+
+The parser only proposes a result, and the code below always gives the same decision for the same input.
+"""
 
 from dataclasses import dataclass
 
@@ -11,7 +14,7 @@ from runtime.refdata import UNIVERSES
 
 @dataclass(frozen=True)
 class Decision:
-    kind: str  # rfq_new | rfq_amend | rfq_cancel | rfq_live
+    kind: str  # One of rfq_new, rfq_amend, rfq_cancel or rfq_live.
     rfq_id: str
     side: str | None = None
     instrument: str | None = None
@@ -24,7 +27,7 @@ def _size_ok(size: int | None, cfg: dict) -> bool:
 
 
 def decide(p: Parsed, cfg: dict, msg_id: str, latest_open: Decision | None) -> Decision | str:
-    """Return a Decision, or an outcome string explaining why nothing is emitted."""
+    """Return a Decision, or an outcome string that explains why the engine sends nothing."""
     if p.intent == "none":
         return "ignored"
     if p.ambiguity:

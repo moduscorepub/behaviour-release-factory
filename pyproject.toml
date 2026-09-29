@@ -1,7 +1,7 @@
 [project]
 name = "behaviour-release-factory"
 version = "0.1.0"
-description = "Evidence-gated behaviour-release factory: compile, prove, gate and activate agent-built changes to chat-driven trading-message engines."
+description = "Command line tools that check the changes an AI coding agent makes and decide whether each change can be released, with an example chat parsing engine for bond trading desks."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

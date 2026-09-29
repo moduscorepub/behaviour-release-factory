@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Evidence runner: compile and execute obligations in isolation, then sign what actually ran.
+"""Run the checks in a separate worker process, and sign the record of the checks that ran.
 
-In production `evidence` runs in protected CI holding the runner key; the implementation agent
-never has the key. It runs the identical obligations unsigned (`check`) for fast feedback and
-`explore --save` to turn counterexamples into permanent regression scenarios.
+In production, `evidence` runs in protected CI, which holds the signing key, and the agent that writes the change never
+has the key. The agent runs the same checks without a signature through `check` for quick feedback. The agent can also
+run `explore --save` to turn a failing sequence of events into a permanent regression scenario.
 """
 
 import platform
@@ -34,7 +34,7 @@ def _execute(ws: Workspace, behaviour: str, runtime_root: Path | None, skip: tup
     store = Store(ws)
     obligations = [o for o in required_obligations(pkg, policy) if o not in skip]
     started = now()
-    with tempfile.TemporaryDirectory() as tmp:  # snapshot: the candidate cannot change underneath its own evaluation
+    with tempfile.TemporaryDirectory() as tmp:  # The checks run on a copy of the engine code, so the code can't change while the checks run.
         shutil.copytree((runtime_root or ws.root) / "runtime", Path(tmp) / "runtime", ignore=shutil.ignore_patterns("__pycache__"))
         runtime = {f: sha((Path(tmp) / f).read_bytes()) for f in pkg["manifest"]["runtime"]["files"] if (Path(tmp) / f).exists()}
         records = worker.call(Path(tmp), {
@@ -57,7 +57,7 @@ def produce_evidence(ws: Workspace, behaviour: str, runtime_root: Path | None = 
 
 
 def check(ws: Workspace, behaviour: str, runtime_root: Path | None = None, skip: tuple[str, ...] = ("mutation",)) -> dict:
-    """Builder feedback: same obligations, unsigned, never accepted by the gate."""
+    """Run the same checks as `evidence` for builder feedback. The results aren't signed, so the gate never accepts them."""
     compiled = compile_behaviour(ws, behaviour, runtime_root)
     bundle = _execute(ws, behaviour, runtime_root, skip) | {"diagnostics": compiled["diagnostics"]}
     write_json(ws.package_path(behaviour).with_name("check.json"), bundle)

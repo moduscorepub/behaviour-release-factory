@@ -1,5 +1,5 @@
-# Protected engineering policy. Owned by the approving function, pinned by digest in trust/pins.json.
-# Editing this file without re-pinning makes every gate decision FAIL.
+# The file holds the rules that the gate enforces. Approvers own the file, and trust/pins.json records a hash of it.
+# If someone edits the file and doesn't run trust-init again, the gate answers FAIL for every release.
 policy_version: 1
 
 desks:
@@ -8,32 +8,32 @@ desks:
   LDN-GILTS:
     destinations: ["bus:rfq/ldn/gilts", "chat:GILT-TRADERS"]
 
-# Effects a component may declare at each pipeline stage.
+# The list below gives the effects that a component may declare at each stage of the pipeline.
 stage_effects:
   enrichment: ["write:derived_text"]
   parser: ["read:refdata"]
   converter: ["emit:payload"]
 
-# Obligations every behaviour release must discharge ("scenarios" expands to every scenario in the package).
+# Every release must pass the checks below, and "scenarios" means every scenario in the release.
 obligations: [static:schema, static:traceability, static:composition, static:effects, interference, scenarios, eval, explore, mutation]
 
 evaluation:
-  min_wilson_lower: 0.55        # per-slice floor on the 95% Wilson lower bound of correctness
+  min_wilson_lower: 0.55        # The lowest accuracy allowed in a category, as the lower bound of a 95% confidence interval.
   slice_floors: {standard: 0.65}
   zero_harm_slices: [other_desk, ambiguous, quoted_history]
-  paired_alpha: 0.05            # one-sided exact McNemar vs the live baseline, per slice
+  paired_alpha: 0.05            # The significance level for deciding that a category got worse than in the live release.
 
 exploration:
-  max_examples: 400             # delivery/crash/ack/release-switch schedules searched per candidate
+  max_examples: 400             # The number of unusual sequences of events that the checker tries for each release.
 
 mutation:
-  explore_examples: 150         # exploration budget when probing each domain mutant
+  explore_examples: 150         # The number of sequences of events that the checker tries against each deliberately broken engine.
 
 promotion:
   behaviour: {auto: true, blocking_flags: [new_destination, trigger_scope_widened]}
-  runtime: {auto: false}        # shared-engine changes need an authorised promotion approval
+  runtime: {auto: false}        # A change to shared engine code needs approval from a named person.
 
-# Delivery-state projection. Whether Jira "Done" means merged, qualified or activated is a ratified workflow decision.
+# The map below turns release states into Jira statuses, and your team decides what "Done" means.
 jira:
   project: DESK
   status: {todo: "To Do", in_progress: "In Progress", blocked: "Blocked", qualified: "In Review", activated: "Done"}

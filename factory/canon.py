@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Canonical digests and workspace layout shared by every factory component."""
+"""Hashes, signatures and folder paths that every part of the factory shares.
+
+The hashes use a fixed form of JSON with sorted keys and no spaces, so the same data always gives the same hash.
+"""
 
 import hashlib
 import hmac
@@ -37,7 +40,7 @@ def verify(key: bytes, obj, signature: str) -> bool:
 
 
 def evaluator_digest(factory_dir: Path = FACTORY_DIR) -> str:
-    """Identity of the code that produces and judges evidence (every factory module)."""
+    """Return one hash of every module in factory/, which is the code that produces and judges the evidence."""
     return digest({p.name: sha(p.read_bytes()) for p in sorted(factory_dir.glob("*.py"))})
 
 
@@ -56,7 +59,7 @@ def write_json(path: Path, obj) -> None:
 
 @dataclass(frozen=True)
 class Workspace:
-    """behaviours/ + runtime/ are builder-owned; policy/ and trust/ are authority-owned."""
+    """Give the paths of a workspace. Builders own behaviours/ and runtime/, and approvers own policy/ and trust/."""
 
     root: Path
 
@@ -84,6 +87,9 @@ class Workspace:
 
 
 def runner_key(trust: Path) -> bytes:
-    """CI supplies the key as a secret env var; locally it lives in the authority-owned trust dir."""
+    """Return the signing key.
+
+    CI passes the key in a secret environment variable. On your own computer, the key is in the trust/ folder, which approvers own.
+    """
     env = os.environ.get("FACTORY_RUNNER_KEY")
     return bytes.fromhex(env) if env else (trust / "runner.key").read_bytes()

@@ -5,5 +5,5 @@ __pycache__/
 .tools/
 build/
 state/
-# Authority-owned: runner key, pins and approvals never live in the builder's repository.
+# The signing key, the policy hashes and the approvals belong to approvers, so never commit them.
 trust/

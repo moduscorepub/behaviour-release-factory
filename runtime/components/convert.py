@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Output converters: Decision -> downstream payload. Pure; publishing is the engine's broker."""
+"""Converters that turn a Decision into the message for a receiving system.
+
+The converters have no side effects, and only the engine sends messages.
+"""
 
 
 def bus_rfq_v1(d, desk: str) -> dict:

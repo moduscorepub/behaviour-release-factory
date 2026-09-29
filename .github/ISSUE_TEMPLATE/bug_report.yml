@@ -1,12 +1,12 @@
 name: Bug report
-description: Something behaves differently from the documentation or a stated invariant.
+description: Report something that doesn't work as the documentation describes.
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        Security issues (gate bypass, evidence forgery, secret exposure, sandbox escape) must be reported privately.
-        See [SECURITY.md](https://github.com/moduscorepub/behaviour-release-factory/blob/main/SECURITY.md).
+        Please report security problems privately instead of in an issue, e.g., a way around the gate, forged results, exposed secrets or a way out of the sandbox.
+        [SECURITY.md](https://github.com/moduscorepub/behaviour-release-factory/blob/main/SECURITY.md) explains how to report them.
   - type: input
     id: version
     attributes:
@@ -18,18 +18,18 @@ body:
     id: reproduce
     attributes:
       label: Steps to reproduce
-      description: Commands run, behaviour or scenario used, and any minimal inputs.
+      description: List the commands that you ran and the desk or scenario that you used, and attach any small input files that are needed.
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected versus actual behaviour
-      description: Include the gate decision or obligation record if relevant.
+      label: What you expected and what happened
+      description: If the gate or a check was involved, include its output.
     validations:
       required: true
   - type: input
     id: environment
     attributes:
       label: Environment
-      placeholder: OS, Python version, uv version
+      placeholder: Operating system, Python version and uv version

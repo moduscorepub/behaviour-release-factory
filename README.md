@@ -3,158 +3,227 @@
 [![CI](https://github.com/moduscorepub/behaviour-release-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/moduscorepub/behaviour-release-factory/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](pyproject.toml)
-[![DCO](https://img.shields.io/badge/DCO-1.1-blue.svg)](CONTRIBUTING.md#developer-certificate-of-origin)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![DCO](https://img.shields.io/badge/DCO-1.1-blue.svg)](CONTRIBUTING.md#sign-off-your-commits)
 
-An evidence-gated **behaviour-release factory** for chat-driven trading-message engines
-(client chat → RFQ capture → trader routing → chat suggestions). Coding agents implement; a
-separate, protected system decides whether a change may ship.
+behaviour-release-factory is a set of command line tools that check the changes an AI coding agent makes and decide whether each change can be released. The repository includes an example chat parsing engine for bond trading desks, so you can run the whole process on your own computer.
 
-The unit of delivery is a **behaviour release**: approved intent + executable profile + consumer
-contracts + scenarios + labelled corpus, compiled against the exact runtime code it will execute,
-qualified by runner-signed evidence, and activated by compare-and-swap.
+## Why the checks run outside the agent
 
-```mermaid
-flowchart LR
-  C[Confluence page vN] -->|spec-snapshot, digest| S[spec.yaml + intent.md]
-  S -->|approve-spec: authority| T[(trust/)]
-  S --> K[compile: schema, composition, effects, runtime closure]
-  K --> W[worker subprocess: candidate runtime only]
-  W --> O[obligations: static, interference, scenarios, eval, explore, mutation]
-  O -->|runner key signs| E[evidence.json]
-  E --> G{gate: PASS / FAIL / INCONCLUSIVE}
-  T --> G
-  G -->|PASS| A[activate: immutable release + CAS pointer]
-  A --> R[runtime adopts if code binding holds]
-  A --> J[Jira projection]
-  R -->|counterexample| X[explore --save: regression scenario]
-  X --> S
-```
+An AI coding agent can write a change quickly, but you still need a reliable way to know whether the change is safe to release. If the same agent writes a change and also reports that the change works, you only have the agent's word for it.
 
-## Layout
+The factory keeps the writing and the checking apart in the following ways:
 
-| Path | Owner | Contents |
-|---|---|---|
-| `runtime/` | builder | Reference engine: inbox/outbox, RFQ state machine, crash-safe effect protocol, profile-selected components with declared contracts and effects |
-| `behaviours/<id>/` | builder (spec: product owner) | `intent.md` (approved-page snapshot), `spec.yaml` (requirements → verifications → work items), `profile.json`, `contracts/`, `scenarios/`, `corpus.jsonl` |
-| `factory/` | factory (control release) | compiler, lab, evaluation, mutation, worker, runner, gate, activation, impact, atlassian, isolation, adversarial, cli |
-| `policy/` | authority (pinned) | `policy.yaml` (desks → permitted destinations, stage effects, obligations, statistical floors, promotion rules, Jira mapping), `builder-boundary.yaml` |
-| `sandbox/` | builder-proposable, prover-checked | OpenShell policy the implementation agent runs under |
-| `trust/`, `state/`, `build/` | authority / runtime / generated | runner key + pins + approvals; release store + runtime DBs; packages + evidence (all gitignored) |
+- The agent works in a sandbox, which is an isolated environment that only lets the agent change the files it's responsible for.
+- A separate process runs the checks and signs the results with a private key that the agent never sees.
+- The release gate is a program that reads the signed results and allows a release only when every required check has passed.
 
-Destinations use two schemes: `bus:` (trader-facing message bus topics) and `chat:` (outbound chat
-suggestions). Bind them to your own transports in the engine's publish capability.
+## The example chat parsing engine
 
-## Design principles and where they live
+The example engine reads chat messages from the clients of a trading desk and turns each request into a request for quote (RFQ) for the desk's traders. For example, a client might send `px on 25mm 10s bid`, which asks for a price on 25 million of the 10-year US Treasury note.
 
-| Principle | Implementation |
+After the engine sends an RFQ to the traders, it posts an update in the chat when a trader picks up the RFQ. Clients can also change or cancel a request in later messages.
+
+Each desk is described by a configuration file called a profile. The profile says which chat rooms the desk listens to and where the results go, and it also says how to read the desk's slang. Most of a desk's behaviour lives in its profile, so adding a desk is mostly a configuration change. The factory checks a profile change with the same release process that it uses for a change to the engine code.
+
+The repository includes the following example desks:
+
+- `ust-rfq-nyc`, a New York desk that trades US Treasuries.
+- `gilt-rfq-ldn`, a London desk that trades UK government bonds, which are called gilts.
+
+## How a change is released
+
+A change to a desk is called a behaviour release, and every behaviour release goes through the steps below in order.
+
+First, a product owner describes what the desk should do in `intent.md` and lists the requirements in `spec.yaml`. An approver then records the exact versions of both files, so if either file changes later, the approval no longer applies.
+
+Second, the compiler combines the approved requirements, the profile and the desk's test data into one release package. The package also records a hash of every engine file that the desk uses. A hash is a short code that is computed from the contents of a file, and it changes whenever the contents change.
+
+Third, a separate worker process runs every required check against the package. The next section describes the checks.
+
+Fourth, the runner signs the results with a private key. The signature proves that the results came from the trusted runner and that nobody edited them afterwards.
+
+Fifth, the gate reads the signed results and gives one of the following answers:
+
+- PASS means that every required check ran and passed.
+- FAIL means that a check failed, or that the evidence was edited, out-of-date or not approved.
+- INCONCLUSIVE means that something required wasn't shown to be true, e.g., because a check never ran.
+
+Only PASS allows a release. Some changes also need a named person to approve the exact release, e.g., a change to shared engine code, or a desk that starts to listen to new chat rooms.
+
+Sixth, activation runs the gate again and stores the release so that nobody can change it. Activation then switches the live version, and the switch only succeeds if nobody else changed the live version in the meantime.
+
+You can run a new release in shadow mode before it goes live. In shadow mode, the release processes real messages, but its output never reaches the traders. If a live release causes problems, rollback stops anyone from using the release again. Rollback can't unsend messages, so it lists the messages that the release has already sent.
+
+## What the checks look for
+
+The checks look for mistakes that ordinary unit tests often miss, e.g., a message that is sent twice after a crash.
+
+- Checks on the release package
+  - The profile is valid, and its components fit together. The profile only sends messages to destinations that the desk is allowed to use.
+  - A new desk can't pick up messages that belong to another desk.
+- Checks that run the engine
+  - Scripted conversations, called scenarios, must produce exactly the expected results.
+  - Fault exploration generates many unusual sequences of events, e.g., duplicate messages, crashes, late replies from traders and release switches in the middle of a conversation. If any sequence breaks a business rule, the checker reduces the sequence to the smallest failing example and reports it.
+- Checks on accuracy and on the tests themselves
+  - The labelled example messages are scored separately for each category, e.g., ordinary requests, unclear messages and messages meant for other desks. The accuracy in each category must reach a minimum that is set in the policy, and the riskiest categories must never produce a wrong or extra RFQ.
+  - The new version is compared with the live version on the same messages, and the check fails if any category gets worse by a statistically significant amount.
+  - Mutation testing deliberately breaks the engine in realistic ways and confirms that the tests catch every break.
+
+## Business rules the engine must follow
+
+The checker tests every run of the engine against the business rules in the table below. When a run breaks a rule, the gate reports the rule's ID.
+
+| ID | Rule |
 |---|---|
-| The spec page owns intent, Git owns the executable form, Jira owns delivery state | `spec-snapshot` binds page + version + digest; the compiler refuses any intent that doesn't match the approved digest; `jira-plan` derives state from gate/activation facts, reconciles by stable label and never rewrites human-owned fields |
-| Configuration is executable behaviour, part of a larger contract | Profile, requirements, contracts, scenarios and corpus compile into one canonical package; its digest is the candidate's identity |
-| Compile composition, not JSON | `static:composition` (text properties each stage requires/provides, parser universe, converter scheme ↔ destination, contract fields); `static:effects` (destinations ⊆ desk policy, component effects ⊆ stage policy) |
-| Behaviours must not interfere | Exact check on rooms × firms × keyword-any, with a concrete witness message; regex patterns fall back to corpus search and report residual uncertainty as INCONCLUSIVE |
-| Challenge sequences, not calls | `lab.py`: at-least-once transport, crash points (mid-process, before transport ack, after publish), trader-ack replay, release switches; Hypothesis `find` returns the *shrunk* counterexample |
-| Check business invariants | I1 no duplicate external effect · I2 a cancelled RFQ never reactivates or re-routes · I3 raw text immutable · I4 only permitted destinations · I6 no silent loss · I7 consumer contract · I8 in-flight conversations stay pinned |
-| An unknown outcome is not a failure | Effects go PENDING → IN_FLIGHT → SENT; after a crash IN_FLIGHT becomes UNKNOWN and is never blindly re-published |
-| Tests must reject wrong code | 11 domain mutants (reactivated cancellation, blind republish, early transport ack, dropped pin, inverted side, wrong instrument mapping…) applied only within the behaviour's runtime closure; survivors fail, stale mutants are INCONCLUSIVE |
-| No single misleading score | Per-slice 95% Wilson lower bound against protected floors, zero-harm slices as exact invariants, and a one-sided exact McNemar test against the live baseline per slice |
-| Evidence is bound to the exact candidate and produced independently | The worker runs candidate code in a subprocess on a snapshot; the parent signs `{candidate digest, runtime file digests, evaluator digest, policy digest, records}` with a key the builder never holds |
-| The gate fails closed | Missing obligation → INCONCLUSIVE; any failure, bad signature, stale/changed artifact, unapproved contract, or unpinned policy or evaluator → FAIL |
-| Classify by behaviour and authority, not diff size | `runtime` vs `behaviour` class by runtime closure; `new_destination` and `trigger_scope_widened` flags; policy says what may auto-promote, otherwise a candidate-bound, expiring promotion approval is required |
-| Activation is transactional and observable; rollback cannot retract | Immutable releases; generation CAS; the gate re-runs at activation; adoption only when deployed code matches the release's runtime binding; a shadow engine with a shadow-only publisher; rollback revokes and reports published effects and moved conversations |
-| Context and impact | The `context` task packet carries provenance; `impact` selects exactly the releases whose runtime closure changed (dynamic imports widen to the whole tree) |
-| Hooks are feedback, not authority | Claude Code PreToolUse/Stop hooks (`.claude/settings.json`); the authority is the OpenShell sandbox, proven ⊆ the pinned boundary by `openshell-prover` |
-| Test the gate itself | `qualify-gate`: 22 adversarial cases, each with an expected outcome **and** reason |
-| Gate the merge candidate, not a stale PR head | `examples/ci/factory-gate.yml` (deployment template) runs on `pull_request` and `merge_group`; this repository's own `ci.yml` re-runs the full qualification on every push and pull request |
+| I1 | The engine never sends the same message to the traders or to the chat more than once. |
+| I2 | A cancelled RFQ is never reactivated, even when a trader's reply arrives late. |
+| I3 | The original text of a client's message is never changed. |
+| I4 | Messages only go to destinations that the desk is allowed to use. |
+| I6 | No client message is lost after a crash. |
+| I7 | Every outgoing message has the fields that its receiver needs. |
+| I8 | A conversation stays on the same release until all of its RFQs are closed. |
 
-## Run it
+## Repository layout
 
-Requires Python 3.14 and `uv`. Optional: `openshell-prover` on `PATH` or at `.tools/bin/` for
-`sandbox-check`. Download it from the [OpenShell releases](https://github.com/NVIDIA/OpenShell/releases),
-or build it in an OpenShell checkout with `cargo build --release -p openshell-prover-cli --features prebuilt-z3`.
+| Folder | What it contains | Who changes it |
+|---|---|---|
+| `runtime/` | The example chat parsing engine | Builders, who can be people or agents |
+| `behaviours/` | One folder for each desk, with its intent, requirements, profile, scenarios and example messages | Builders, but the requirements need approval |
+| `factory/` | The compiler, the checks, the gate and the release tools | Maintainers only |
+| `policy/` | The rules that the gate enforces, e.g., allowed destinations and accuracy minimums | Approvers only |
+| `sandbox/` | The sandbox settings for AI coding agents | Builders can propose changes |
+| `.claude/` | The Claude Code hooks and the writing style for the repository | Maintainers only |
+| `examples/` | Sample chat traffic, a Jira snapshot and a CI template | Anyone |
+
+When you run the tools, they create the following folders, which git ignores:
+
+- `trust/` holds the signing key and the approvals.
+- `state/` holds the release history.
+- `build/` holds the compiled packages and the check results.
+
+## Quick start
+
+You need Python 3.14 and [uv](https://docs.astral.sh/uv/). The sandbox check also needs `openshell-prover`, which you can download from the [OpenShell releases page](https://github.com/NVIDIA/OpenShell/releases) and put on your `PATH` or in `.tools/bin/`.
 
 ```bash
 F="uv run python -m factory"
-rm -rf build state trust                          # clean slate
 
-$F trust-init                                     # authority: runner key, pin policy/evaluator/boundary
-$F approve-spec ust-rfq-nyc  --by product-owner   # authority: approve meaning
+# Create a signing key and record the current policy. An approver normally runs the command.
+$F trust-init
+
+# Approve the requirements of both example desks.
+$F approve-spec ust-rfq-nyc --by product-owner
 $F approve-spec gilt-rfq-ldn --by product-owner
 
-$F compile ust-rfq-nyc && $F evidence ust-rfq-nyc && $F gate ust-rfq-nyc
+# Compile, check and gate the US Treasury desk, and then release it.
+$F compile ust-rfq-nyc
+$F evidence ust-rfq-nyc
+$F gate ust-rfq-nyc
 $F activate ust-rfq-nyc --mode live --by release-bot
 
-$F compile gilt-rfq-ldn && $F evidence gilt-rfq-ldn
+# Run the gilt desk in shadow mode on sample chat traffic, and then release it.
+$F compile gilt-rfq-ldn
+$F evidence gilt-rfq-ldn
 $F activate gilt-rfq-ldn --mode shadow --by release-bot
-$F feed examples/feed-morning.jsonl --instance i1 && $F shadow-report --instance i1
+$F feed examples/feed-morning.jsonl --instance i1
+$F shadow-report --instance i1
 $F activate gilt-rfq-ldn --mode live --by release-bot
 
-$F context gilt-rfq-ldn                           # task packet for the next change
-$F impact --runtime-root /path/to/candidate       # which live releases a runtime change invalidates
-$F explore gilt-rfq-ldn --runtime-root /path/to/candidate --save   # minimised counterexample -> regression scenario
-$F rollback gilt-rfq-ldn --by oncall              # revoke; report unretractable effects
-$F jira-plan --actual examples/jira-snapshot.json
-$F sandbox-check
-$F qualify-gate                                   # ~45s
+# Test the gate itself with 22 prepared cases. The test takes about 45 seconds.
+$F qualify-gate
 ```
 
-Builder loop (inside the sandbox, no key): `context` → edit → `check` (unsigned, the same obligations
-minus mutation) → `explore --save`. The Stop hook refuses completion while any behaviour or the
-runtime has changed since its last check.
+The table below lists other commands that you may need.
 
-`FACTORY_ROOT` selects the workspace; `FACTORY_RUNNER_KEY` (hex) supplies the runner key in CI. All
-`FACTORY_*` variables are scrubbed from the worker's environment.
+| Command | What it does |
+|---|---|
+| `context <desk>` | Prints a summary of a desk, with its requirements, their status and the engine code it shares with other desks |
+| `impact --runtime-root <path>` | Lists the live releases that a change to the engine code affects |
+| `explore <desk> --save` | Searches for a sequence of events that breaks a business rule, and saves it as a permanent test |
+| `rollback <desk> --by <name>` | Returns a desk to its previous release |
+| `jira-plan --actual examples/jira-snapshot.json` | Shows the Jira updates that follow from the current release state |
+| `sandbox-check` | Proves that the agent's sandbox settings stay within the approved limits |
 
-## Qualify your own engine
+Run `uv run python -m factory --help` to see every command.
 
-1. Implement the seams in `runtime/`: register components with their data contracts and effects,
-   accept releases via the `Releases` protocol, and publish only through the engine's capability check.
-2. Describe each desk or behaviour under `behaviours/<id>/`, and its permitted destinations in `policy/policy.yaml`.
-3. Replace or extend the domain mutants in `factory/mutation.py` with faults that matter to your engine.
-4. Run `qualify-gate` on your historical defects before enabling any autonomous promotion lane.
+## Working with an AI coding agent
 
-## What has been verified
+The agent should work inside an [OpenShell](https://github.com/NVIDIA/OpenShell) sandbox that uses the settings in `sandbox/builder-policy.yaml`. Inside the sandbox, the agent can edit `behaviours/` and `runtime/`, but it can't read the signing key, change the policy or reach outside systems such as Jira. The `sandbox-check` command uses the OpenShell policy prover to prove that the agent's settings stay within the limits in `policy/builder-boundary.yaml`, and only an approver can change the limits.
 
-- Both example behaviours: 17/17 obligations pass. All applicable mutants are killed (10 per behaviour); `pin-dropped` is caught only by release-switch exploration.
-- `qualify-gate`: 22/22. Covers stale evidence, post-verification edits, forged results, a skipped scenario and a skipped eval, a removed requirement, a lowered threshold, an altered evaluator, wrong routing, an over-broad trigger, a composition hole, three runtime defects and an extraction regression. It also holds scope widening and runtime changes for authority (and PASSes them with approval), and checks sandbox containment, widening and boundary tampering.
-- Lifecycle:
-  - Shadow activation diverged only on the new desk's messages; promotion cleared the shadow pointer.
-  - A defective recovery was shrunk to a one-message counterexample and saved as a regression, which passes on the fixed runtime.
-  - Impact isolated a gilt-only change from the UST release.
-  - Rollback reported the published effects; pinned conversations continued on the restored release.
-  - The Jira plan was correct against a snapshot.
-  - Hooks blocked policy, trust and factory writes, including path traversal.
-- `openshell-prover`: the builder policy is `within_boundary` over filesystem, network L4/REST, process and Landlock. A route to Jira gives `exceeds_boundary`; a `trust/` read gives `unsupported`. Both fail closed.
+The Claude Code hooks in `.claude/settings.json` give the agent quick feedback. The hooks block edits to protected folders, and they stop the agent from reporting that it's finished while its latest changes are unchecked. An agent could get around the hooks, so the sandbox and the signing key are the controls that enforce the rules.
 
-## Limits
+In a typical session, the agent works through the following steps:
 
-- **Reference engine.** `runtime/` is a compact reference implementation. SQLite and JSONL sinks stand in for a production config store and transports; the CAS maps onto any store with an atomic conditional update keyed on a generation.
-- **No live-model path.** The parser is rules-based. The paired evaluation compares profiles on the candidate runtime, not baseline runtime against candidate runtime.
-- **Small example corpora.** With 6–10 conversations per slice, Wilson lower bounds are about 0.61–0.72, which is weak statistical evidence. Grow the corpora before tightening the floors.
-- **Worker isolation is a subprocess.** Secrets are scrubbed from its environment, but a same-UID process can read its parent's environment. In CI, run the worker inside an OpenShell sandbox (no network, read-only tree).
-- **Not exercised against live services.** The Atlassian adapters (Confluence fetch, Jira fetch/apply) haven't been run against a live tenant; plan computation is verified offline. The deployment template `examples/ci/factory-gate.yml` needs your secrets and environment, so it isn't run in this repository.
-- **Registry imports aren't tracked for impact.** Module-level side effects in unselected component modules are not followed. Dynamic import/exec widens impact to the whole runtime tree.
-- **Every factory code change is a control release.** Evidence fails until the authority re-runs `trust-init`. Approvals are protected by access control on `trust/`; the upgrade path is signed governance digests.
+1. Run `context <desk>` to see the desk's requirements and the engine code that it shares with other desks.
+2. Edit the desk's files or the engine code.
+3. Run `check <desk>` to run the same checks as the gate, without signing the results.
+4. Run `explore <desk> --save` to search for sequences of events that break a business rule, and to save any that it finds as tests.
 
-## Licensing
+Signing, gating and release happen in protected CI, which the agent can't access.
 
-[MIT](LICENSE). Every source file carries an SPDX licence identifier. Contributions are accepted under the
-same licence with a [DCO](CONTRIBUTING.md#developer-certificate-of-origin) sign-off; there is no CLA.
+## Using it with your own engine
 
-Runtime dependencies are installed from PyPI; none are vendored or redistributed here.
+1. Replace the example engine in `runtime/` with your own engine, or adapt the example. Your engine needs the following parts:
+   - A list of components that says what data each component needs and what effects it may have.
+   - A way to load approved releases.
+   - A single place where the engine sends every outgoing message.
+   - A database that keeps its data after a crash.
+2. Describe each desk in its own folder under `behaviours/`, and list its allowed destinations in `policy/policy.yaml`.
+3. Replace the deliberate faults in `factory/mutation.py` with faults that matter for your engine.
+4. Before you let any change release automatically, add cases to `factory/adversarial.py` that repeat real defects from your engine's history. Then run `qualify-gate` and confirm that the gate rejects every one of them.
+
+The CI template in `examples/ci/factory-gate.yml` shows how to run the gate on every pull request and in the merge queue of your own repository.
+
+## What has been tested
+
+- Both example desks pass every required check. For each desk, mutation testing adds ten realistic faults to the engine, and the tests catch all ten.
+- `qualify-gate` passes all 22 of its cases, and each case expects a set answer from the gate.
+  - Ten cases tamper with the evidence or the controls, e.g., with forged results, a deleted requirement, a lowered threshold or a wider sandbox.
+  - Seven cases add a defect to a desk profile or to the engine, e.g., a message sent to the wrong desk, or a late reply that reactivates a cancelled RFQ.
+  - Two cases make changes that need a person's approval.
+  - Three cases are correct changes that the gate must pass, so that a gate that rejects everything fails the test.
+- The full release process has been run from start to finish, including shadow mode, rollback and turning a failing sequence of events into a permanent test.
+- On every push and pull request, CI compiles, checks and gates both desks. CI also runs the sandbox check, `qualify-gate` and a punctuation check for the writing style.
+
+## Known limitations
+
+- The example engine
+  - The engine keeps its data in SQLite and writes outgoing messages to files. A production engine would use its own database and messaging systems.
+  - The parser uses fixed rules instead of a language model. The factory can't yet evaluate a parser that uses a language model, because the answers of a language model can vary between runs.
+  - Each category of example messages has 6 to 10 examples, which gives only weak statistical evidence. Add more examples before you rely on the accuracy minimums.
+- Isolation of the checks
+  - The worker runs as a separate process, without a full sandbox. Secrets are removed from its environment, but another process that runs as the same user could still read them. In production, run the worker inside a sandbox.
+  - Any change to the code in `factory/` counts as a change to the checks. An approver must run `trust-init` again before the gate accepts new results.
+- Connections to other systems
+  - The Jira and Confluence connectors haven't been tested against live systems. The Jira update plan has only been checked against a saved snapshot.
+
+## Writing style
+
+All prose in the repository follows the plain-writing skill in [`.claude/skills/plain-writing/SKILL.md`](.claude/skills/plain-writing/SKILL.md). The prose includes the documentation, the code comments and docstrings, the command help and the messages that the tools print. Claude Code loads the skill automatically, and CI rejects dashes, middle dots and curly quotes, which rules 15 and 17 of the skill forbid.
+
+## Licence
+
+The project is released under the [MIT License](LICENSE). Every source file has a short licence tag, called an SPDX header, so that licence scanners can identify the licence.
+
+Contributions are accepted under the same licence. You don't need to sign a separate agreement, but you do need to sign off your commits, as [CONTRIBUTING.md](CONTRIBUTING.md) explains.
+
+The plain-writing skill is copied without changes from [docwriter-org/plain-writing-skill](https://github.com/docwriter-org/plain-writing-skill) at commit `f0d3630`. The skill is also under the MIT License, and its copyright notice is in [`.claude/skills/plain-writing/LICENSE`](.claude/skills/plain-writing/LICENSE).
+
+The project installs the following packages from PyPI, and none of them are copied into the repository.
 
 | Package | Licence |
 |---|---|
 | pydantic, pydantic-core, annotated-types, typing-inspection, PyYAML | MIT |
 | typing-extensions | PSF-2.0 |
 | sortedcontainers | Apache-2.0 |
-| hypothesis | MPL-2.0: file-level copyleft that applies only if you modify Hypothesis's own files; using it as a dependency places no obligations on your code |
+| hypothesis | MPL-2.0 |
 
-The optional `openshell-prover` (Apache-2.0) is downloaded by CI at run time and is not distributed with this project.
+The MPL-2.0 licence only sets conditions on changes to the files of Hypothesis itself, so using Hypothesis as a dependency sets no conditions on your code.
 
-## Contributing, security and conduct
+The optional `openshell-prover` tool is under the Apache-2.0 licence. CI downloads the tool when it runs, and the project doesn't distribute it.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): setup, DCO sign-off and ground rules (never weaken the gate to make something pass).
-- [SECURITY.md](SECURITY.md): report vulnerabilities privately through GitHub; gate bypasses count.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): Contributor Covenant 2.1.
-- [CHANGELOG.md](CHANGELOG.md): release history.
+## Contributing and security
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up the project, sign off your commits, test your changes and follow the writing style.
+- [SECURITY.md](SECURITY.md) explains how to report a vulnerability privately.
+- [CHANGELOG.md](CHANGELOG.md) lists the changes in each release.

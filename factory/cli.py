@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""`python -m factory <command>`: the same commands run locally, in CI and from agent hooks."""
+"""Command line interface for the factory, which you run as `python -m factory <command>`.
+
+The same commands run on your own computer, in CI and from the Claude Code hooks.
+"""
 
 import argparse
 import json
@@ -17,51 +20,67 @@ def _print(obj) -> None:
 
 
 def _parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="factory", description="Behaviour-release factory for chat-driven trading-message behaviours.")
-    ap.add_argument("--root", type=Path, default=Path(os.environ.get("FACTORY_ROOT", PROJECT)), help="workspace root")
+    ap = argparse.ArgumentParser(prog="factory", description="Check, approve and release changes to the desks of a chat parsing engine.")
+    ap.add_argument("--root", type=Path, default=Path(os.environ.get("FACTORY_ROOT", PROJECT)),
+                    help="The root folder of the workspace. The default is FACTORY_ROOT if it's set, and the repository folder otherwise.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def cmd(name: str, help: str, *args: tuple) -> argparse.ArgumentParser:
-        p = sub.add_parser(name, help=help)
+        p = sub.add_parser(name, help=help, description=help)
         for flags, kw in args:
             p.add_argument(*flags, **kw)
         return p
 
-    b = (("behaviour",), {})
-    rt = (("--runtime-root",), {"type": Path, "help": "candidate runtime tree (default: workspace)"})
-    by = (("--by",), {"required": True})
+    b = (("behaviour",), {"help": "The name of a desk folder under behaviours/, e.g., ust-rfq-nyc."})
+    rt = (("--runtime-root",), {"type": Path, "help": "The folder that holds the runtime/ code to use. The default is the workspace root."})
+    by = (("--by",), {"required": True, "help": "The name of the person or system that performs the action."})
 
-    # authority
-    cmd("trust-init", "(authority) generate runner key, pin policy, evaluator and sandbox boundary")
-    cmd("approve-spec", "(authority) approve the current spec revision of a behaviour", b, by)
-    cmd("approve-promotion", "(authority) authorise one candidate digest to promote", (("digest",), {}), by,
-        (("--reason",), {"required": True}), (("--hours",), {"type": int, "default": 24}))
-    # builder loop
-    cmd("context", "task packet: requirements, evidence state, composition, blast radius", b)
-    cmd("compile", "compile a behaviour into a canonical release package", b, rt)
-    cmd("check", "unsigned run of every obligation except mutation (builder feedback)", b, rt)
-    cmd("explore", "search fault schedules; --save keeps the minimised counterexample as a regression scenario", b, rt,
-        (("--save",), {"action": "store_true"}))
-    # protected CI
-    cmd("evidence", "(runner) execute every required obligation and sign the evidence", b, rt, (("--skip",), {"action": "append", "default": []}))
-    cmd("gate", "evaluate the promotion gate; exit 0 only on PASS", b)
-    cmd("qualify-gate", "run the adversarial gate-qualification benchmark", (("--case",), {"action": "append"}))
-    cmd("sandbox-check", "prove the builder sandbox policy is within the pinned boundary (openshell-prover)", (("--candidate",), {"type": Path}))
-    # release control
-    cmd("activate", "gate, store immutably, compare-and-swap the active pointer", b, (("--mode",), {"choices": ("live", "shadow"), "required": True}), by,
-        (("--expect-generation",), {"type": int}))
-    cmd("rollback", "revoke the live release, restore the previous one, report unretractable effects", b, by)
-    cmd("status", "desired vs observed release state")
-    cmd("impact", "active releases invalidated by the current runtime tree", rt)
-    cmd("feed", "run the deployed runtime (live + shadow) over a JSONL event file", (("events",), {"type": Path}), (("--instance",), {"default": "i1"}))
-    cmd("shadow-report", "compare live and shadow outcomes per message", (("--instance",), {"default": "i1"}))
-    # delivery systems
-    cmd("jira-plan", "reconcile work-item state into Jira operations", (("--actual",), {"type": Path, "help": "Jira issues snapshot JSON; default: fetch"}),
-        (("--jira-url",), {}))
-    cmd("jira-apply", "apply the reconciliation plan (needs ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN)", (("--jira-url",), {"required": True}))
-    cmd("spec-snapshot", "snapshot an approved Confluence page version into intent.md", b, (("--confluence-url",), {"required": True}),
-        (("--page-id",), {"required": True}), (("--version",), {"type": int, "required": True}))
-    cmd("hook", "Claude Code hook entry point (reads the hook JSON on stdin)", (("event",), {"choices": ("pre-tool-use", "stop")}))
+    # Commands for approvers.
+    cmd("trust-init", "Create the signing key, and record hashes of the policy, the checks and the sandbox limits. Only approvers run the command.")
+    cmd("approve-spec", "Approve the current revision of the requirements of a desk. Only approvers run the command.", b, by)
+    cmd("approve-promotion", "Allow one release package, which is named by its hash, to be released. Only approvers run the command.",
+        (("digest",), {"help": "The hash of the release package."}), by,
+        (("--reason",), {"required": True, "help": "The reason for the approval."}),
+        (("--hours",), {"type": int, "default": 24, "help": "The number of hours that the approval lasts. The default is 24."}))
+    # Commands for builders.
+    cmd("context", "Print a summary of a desk, with its requirements, the status of their checks and the engine code that it shares with other desks.", b)
+    cmd("compile", "Compile a desk into a release package.", b, rt)
+    cmd("check", "Run every check except mutation testing, without signing the results. Builders use the command for feedback.", b, rt)
+    cmd("explore", "Search for a sequence of events that breaks a business rule.", b, rt,
+        (("--save",), {"action": "store_true", "help": "Save the smallest failing sequence as a new scenario of the desk."}))
+    # Commands for protected CI.
+    cmd("evidence", "Run every required check and sign the results. Only the runner in protected CI runs the command.", b, rt,
+        (("--skip",), {"action": "append", "default": [], "help": "Skip the named check. The gate answers INCONCLUSIVE if a required check is skipped."}))
+    cmd("gate", "Decide whether a desk can be released. The command exits with 0 only when the answer is PASS.", b)
+    cmd("qualify-gate", "Test the gate itself with prepared cases that the gate must pass or reject.",
+        (("--case",), {"action": "append", "help": "Run only the named case. You can repeat the option."}))
+    cmd("sandbox-check", "Use openshell-prover to prove that the sandbox settings of the agent stay within the approved limits.",
+        (("--candidate",), {"type": Path, "help": "The sandbox settings to check. The default is sandbox/builder-policy.yaml."}))
+    # Commands that control releases.
+    cmd("activate", "Run the gate and store the release. Then switch the live or shadow version, unless someone else switched it first.", b,
+        (("--mode",), {"choices": ("live", "shadow"), "required": True, "help": "Switch the live version or the shadow version."}), by,
+        (("--expect-generation",), {"type": int, "help": "Switch only if the generation number, which goes up by one with each switch, still has the given value."}))
+    cmd("rollback", "Stop the live release of a desk and go back to the previous release. The command lists the messages that the release already sent, "
+        "because a rollback can't unsend them.", b, by)
+    cmd("status", "Compare the releases that should run with the releases that each engine instance has loaded.")
+    cmd("impact", "List the active releases that the engine code in the runtime folder would make out of date.", rt)
+    cmd("feed", "Run the deployed engine in live and shadow mode over a file of chat events.",
+        (("events",), {"type": Path, "help": "A JSON Lines file with one chat event on each line."}),
+        (("--instance",), {"default": "i1", "help": "The name of the engine instance. The default is i1."}))
+    cmd("shadow-report", "Compare the output of the live release and the shadow release for each message.",
+        (("--instance",), {"default": "i1", "help": "The name of the engine instance. The default is i1."}))
+    # Commands for Jira, Confluence and Claude Code.
+    cmd("jira-plan", "Work out the Jira changes that follow from the current release state.",
+        (("--actual",), {"type": Path, "help": "A JSON snapshot of the Jira issues. Without the option, the command fetches the issues from Jira."}),
+        (("--jira-url",), {"help": "The address of the Jira site."}))
+    cmd("jira-apply", "Make the planned Jira changes. The command needs the ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN environment variables.",
+        (("--jira-url",), {"required": True, "help": "The address of the Jira site."}))
+    cmd("spec-snapshot", "Save one version of an approved Confluence page as the intent.md file of a desk.", b,
+        (("--confluence-url",), {"required": True, "help": "The address of the Confluence site."}),
+        (("--page-id",), {"required": True, "help": "The ID of the Confluence page."}),
+        (("--version",), {"type": int, "required": True, "help": "The version of the page to save."}))
+    cmd("hook", "Handle a Claude Code hook. The command reads the JSON of the hook from standard input.",
+        (("event",), {"choices": ("pre-tool-use", "stop"), "help": "The hook event to handle."}))
     return ap
 
 

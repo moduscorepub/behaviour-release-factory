@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Component registry: each component declares its data contract and permitted effects.
+"""The list of components, where each component declares the data that it needs and the effects that it may have.
 
-Declarations are checked by the compiler; they are enforced structurally at runtime
-(enrichment is str -> str, converters are pure, only the engine broker publishes).
-Imports here are declaration edges: a component module executes only when a profile selects it.
+An enrichment step prepares the text of a message before the parser reads it, and a converter turns a decision into
+an outgoing message. The compiler checks the declarations, and the structure of the engine enforces them at runtime.
+For example, an enrichment step only takes text and returns text, and a converter has no side effects. Moreover,
+only the engine sends messages.
+
+The imports below only declare the components, and the code of a component only runs when a profile selects it.
 """
 
 from dataclasses import dataclass
@@ -21,15 +24,15 @@ from runtime.components.ust import ust_aliases
 @dataclass(frozen=True)
 class Component:
     name: str
-    stage: str  # enrichment | parser | converter
+    stage: str  # One of enrichment, parser or converter.
     fn: Callable
-    requires: frozenset[str] = frozenset()  # text properties needed ("{universe}" is substituted)
+    requires: frozenset[str] = frozenset()  # The text properties that the component needs. "{universe}" stands for the universe of the desk.
     provides: frozenset[str] = frozenset()
     effects: frozenset[str] = frozenset()
-    handles: frozenset[str] = frozenset()  # converter: decision kinds
-    contract: str | None = None  # converter: produced downstream contract
-    fields: frozenset[str] = frozenset()  # converter: produced payload fields
-    scheme: str | None = None  # converter: destination scheme
+    handles: frozenset[str] = frozenset()  # For a converter, the kinds of decision that it handles.
+    contract: str | None = None  # For a converter, the message format that it produces.
+    fields: frozenset[str] = frozenset()  # For a converter, the fields that it produces.
+    scheme: str | None = None  # For a converter, the type of destination, e.g., bus or chat.
 
 
 def _c(name, stage, fn, **kw) -> Component:

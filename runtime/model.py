@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ChatMessage:
-    msg_id: str  # stable transport identity (chat platform message id)
+    msg_id: str  # The fixed ID that the chat platform gives the message.
     conversation_id: str
     room: str
     sender_firm: str
@@ -15,7 +15,7 @@ class ChatMessage:
 
 @dataclass(frozen=True)
 class Release:
-    """A compiled behaviour as the engine sees it."""
+    """A compiled desk release, as the engine sees it."""
 
     digest: str
     behaviour_id: str
@@ -26,7 +26,7 @@ class Release:
 
 @dataclass(frozen=True)
 class Effect:
-    effect_id: str  # derived from input identity, never from release version
+    effect_id: str  # The ID comes from the incoming message, and never from the release.
     rfq_id: str
     kind: str
     destination: str
@@ -35,4 +35,7 @@ class Effect:
 
 
 class Crash(BaseException):
-    """Injected process death (fault exploration only); deliberately not an Exception."""
+    """A crash that the lab causes during fault exploration.
+
+    The class isn't a subclass of Exception, so ordinary error handling doesn't catch it.
+    """

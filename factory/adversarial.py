@@ -1,12 +1,15 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Gate qualification benchmark: the gate earns an autonomous lane by rejecting these, not by looking green.
+"""Test the gate itself with prepared cases, which the `qualify-gate` command runs.
 
-Each case runs in an isolated copy of a prepared workspace (UST live, a good gilt candidate with
-signed evidence), applies one tampering attempt, seeded fault or authority situation, and checks
-both the outcome and the reason. A case that expects PASS guards against a gate that simply
-rejects everything.
+You should only let the gate release changes automatically after it rejects every bad case and
+passes every good case. Each case runs in its own copy of a prepared workspace, where the US
+Treasury desk is live and a correct gilt desk has signed evidence. The case then makes one
+change, e.g., it edits the evidence, adds a defect or makes a change that needs approval.
+Finally, the case checks the answer of the gate and the reason that the gate gives.
+
+The cases that expect PASS catch a gate that simply rejects everything.
 """
 
 import shutil
@@ -24,15 +27,15 @@ from factory.isolation import sandbox_check
 from factory.mutation import MUTANTS
 
 UST, GILT = "ust-rfq-nyc", "gilt-rfq-ldn"
-FAST = ("mutation",)  # defect cases: FAIL must come from the targeted obligation, mutation adds nothing
+FAST = ("mutation",)  # Defect cases skip mutation testing, so the FAIL must come from the check that the case targets.
 
 
 @dataclass(frozen=True)
 class Case:
     id: str
     attack: str
-    expect: str  # PASS | FAIL | INCONCLUSIVE
-    reason: str  # substring that must appear in the decision's reasons
+    expect: str  # The expected answer, which is PASS, FAIL or INCONCLUSIVE.
+    reason: str  # Text that must appear in one of the reasons that the gate gives.
     run: Callable[[Workspace], dict]
 
 
@@ -80,7 +83,7 @@ def _defect(profile_change=None, mutant=None) -> Callable[[Workspace], dict]:
 
 def _stale(ws):
     _profile(ws, lambda p: p["parser"].update(max_size=200_000_000))
-    runner.compile_behaviour(ws, GILT)  # new candidate, evidence left from the previous one
+    runner.compile_behaviour(ws, GILT)  # The package is new, but the evidence is still from the previous package.
     return _gate(ws)
 
 
@@ -136,7 +139,7 @@ def _widen_scope(ws):
 
 def _benign_runtime_change(ws):
     path = ws.root / "runtime" / "components" / "gilt.py"
-    path.write_text(path.read_text() + "\n# formatting-only change: still a runtime release\n")
+    path.write_text(path.read_text() + "\n# A change to formatting alone still counts as a change to the engine.\n")
 
 
 def _sandbox(widen: str | None) -> Callable[[Workspace], dict]:
@@ -154,30 +157,42 @@ def _sandbox(widen: str | None) -> Callable[[Workspace], dict]:
 
 
 CASES = (
-    Case("good-candidate", "none: a correct new desk", "PASS", "", lambda ws: _gate(ws)),
-    Case("stale-evidence", "evidence from the previous candidate after a profile change", "FAIL", "different candidate", _stale),
-    Case("artifact-changed-after-verification", "package edited after evidence was signed", "FAIL", "different candidate", _artifact_changed),
-    Case("forged-results", "failing records flipped to passed without the runner key", "FAIL", "signature invalid", _forged),
-    Case("skipped-critical-scenario", "runner told to skip the late-ack scenario", "INCONCLUSIVE", "scenario:cancel-then-late-ack: required obligation was never executed",
+    Case("good-candidate", "A builder adds a correct new desk, with no attack.", "PASS", "", lambda ws: _gate(ws)),
+    Case("stale-evidence", "The profile changes, but the evidence is from the previous package.", "FAIL", "is for a different package", _stale),
+    Case("artifact-changed-after-verification", "Someone edits the package after the evidence is signed.", "FAIL", "is for a different package", _artifact_changed),
+    Case("forged-results", "Someone changes failed results to passed without the signing key.", "FAIL", "the signature is invalid", _forged),
+    Case("skipped-critical-scenario", "The runner skips the scenario with a late reply after a cancellation.", "INCONCLUSIVE",
+         "scenario:cancel-then-late-ack: the required check never ran",
          lambda ws: (runner.produce_evidence(ws, GILT, skip=("scenario:cancel-then-late-ack",)), _gate(ws))[1]),
-    Case("model-eval-never-executed", "corpus evaluation skipped", "INCONCLUSIVE", "eval: required obligation was never executed",
+    Case("model-eval-never-executed", "The runner skips the accuracy check.", "INCONCLUSIVE", "eval: the required check never ran",
          lambda ws: (runner.produce_evidence(ws, GILT, skip=("eval",)), _gate(ws))[1]),
-    Case("requirement-removed", "builder deletes the cancellation requirement from the spec", "FAIL", "is not an approved revision", _requirement_removed),
-    Case("threshold-lowered", "policy floor lowered in the repository", "FAIL", "differs from the pinned", _threshold_lowered),
-    Case("evaluator-altered", "evidence from a modified evaluator (signed by a key-holding runner)", "FAIL", "evaluator that differs", _evaluator_altered),
-    Case("wrong-routing", "gilt RFQs routed to the UST trader topic", "FAIL", "static:effects", _defect(lambda p: p["outputs"][0].update(destination="bus:rfq/nyc/ust"))),
-    Case("over-broad-trigger", "gilt trigger also listens in a UST client room", "FAIL", "interference", _defect(lambda p: p["trigger"]["rooms"].append("UST-CLIENT-1"))),
-    Case("quoted-history-unhandled", "enrichment chain drops quoted-history stripping", "FAIL", "static:composition", _defect(lambda p: p["enrichment"].remove("strip_quoted_history"))),
-    Case("runtime-late-ack-reactivates", "engine lets a late trader ack reactivate a cancellation", "FAIL", "scenario:cancel-then-late-ack", _defect(mutant="late-ack-reactivates")),
-    Case("runtime-duplicate-publication", "recovery re-publishes effects of unknown outcome", "FAIL", "I1 duplicate external effect", _defect(mutant="recovery-republishes")),
-    Case("runtime-message-loss", "transport acked before durable processing", "FAIL", "I6", _defect(mutant="transport-ack-before-commit")),
-    Case("extraction-regression", "gilt slang for 2032 mapped to the 2038 bond", "FAIL", "eval", _defect(mutant="gilt-32s-mismapped")),
-    Case("scope-widening-needs-authority", "live desk widens its trigger rooms", "INCONCLUSIVE", "trigger_scope_widened", _go_live_then(_widen_scope)),
-    Case("scope-widening-approved", "same widening with a candidate-bound promotion approval", "PASS", "", _go_live_then(_widen_scope, approve=True)),
-    Case("runtime-change-needs-authority", "shared-engine code change under a live desk", "INCONCLUSIVE", "runtime change", _go_live_then(_benign_runtime_change)),
-    Case("builder-sandbox-contained", "none: ratified builder sandbox policy", "PASS", "", _sandbox(None)),
-    Case("builder-sandbox-widened", "builder policy adds a route to Jira", "FAIL", "exceeds_boundary", _sandbox("network")),
-    Case("boundary-edited", "repository boundary widened without re-pinning", "FAIL", "boundary_not_pinned", _sandbox("boundary")),
+    Case("requirement-removed", "A builder deletes the cancellation requirement from spec.yaml.", "FAIL", "isn't an approved revision", _requirement_removed),
+    Case("threshold-lowered", "Someone lowers an accuracy minimum in the policy file.", "FAIL", "policy.yaml differs from the version that approvers recorded",
+         _threshold_lowered),
+    Case("evaluator-altered", "The evidence comes from changed checks, and a runner with the key signs it.", "FAIL", "comes from checks that differ",
+         _evaluator_altered),
+    Case("wrong-routing", "The gilt desk sends its RFQs to the Treasury traders.", "FAIL", "static:effects",
+         _defect(lambda p: p["outputs"][0].update(destination="bus:rfq/nyc/ust"))),
+    Case("over-broad-trigger", "The gilt desk also listens in a Treasury client room.", "FAIL", "interference",
+         _defect(lambda p: p["trigger"]["rooms"].append("UST-CLIENT-1"))),
+    Case("quoted-history-unhandled", "The gilt profile stops removing quoted chat history.", "FAIL", "static:composition",
+         _defect(lambda p: p["enrichment"].remove("strip_quoted_history"))),
+    Case("runtime-late-ack-reactivates", "The engine lets a late reply from a trader reactivate a cancelled RFQ.", "FAIL", "scenario:cancel-then-late-ack",
+         _defect(mutant="late-ack-reactivates")),
+    Case("runtime-duplicate-publication", "After a crash, the engine resends messages that it may already have sent.", "FAIL", "I1 duplicate message",
+         _defect(mutant="recovery-republishes")),
+    Case("runtime-message-loss", "The engine confirms a message to the chat platform before it saves the message.", "FAIL", "I6",
+         _defect(mutant="transport-ack-before-commit")),
+    Case("extraction-regression", "The engine reads the gilt slang for 2032 as the 2038 bond.", "FAIL", "eval", _defect(mutant="gilt-32s-mismapped")),
+    Case("scope-widening-needs-authority", "A live desk starts to listen in more chat rooms.", "INCONCLUSIVE", "trigger_scope_widened", _go_live_then(_widen_scope)),
+    Case("scope-widening-approved", "A live desk starts to listen in more chat rooms, with an approval for the exact package.", "PASS", "",
+         _go_live_then(_widen_scope, approve=True)),
+    Case("runtime-change-needs-authority", "Someone changes shared engine code while a desk is live.", "INCONCLUSIVE", "runtime change",
+         _go_live_then(_benign_runtime_change)),
+    Case("builder-sandbox-contained", "The agent uses the approved sandbox settings, with no attack.", "PASS", "", _sandbox(None)),
+    Case("builder-sandbox-widened", "The sandbox settings of the agent add a route to Jira.", "FAIL", "exceeds_boundary", _sandbox("network")),
+    Case("boundary-edited", "Someone widens the approved sandbox limits in the repository without running trust-init again.", "FAIL", "boundary_not_pinned",
+         _sandbox("boundary")),
 )
 
 
@@ -210,7 +225,7 @@ def qualify(source: Path, only: list[str] | None = None) -> dict:
                 matched = decision["outcome"] == case.expect and (not case.reason or any(case.reason in r for r in reasons))
                 rows.append({"case": case.id, "attack": case.attack, "expected": case.expect, "actual": decision["outcome"],
                              "ok": matched, "evidence": reasons[:2]})
-            except Exception as e:  # a case that cannot run is a qualification failure, never a pass
+            except Exception as e:  # A case that can't run counts as a failed case, never as a passed one.
                 rows.append({"case": case.id, "attack": case.attack, "expected": case.expect, "actual": f"ERROR {type(e).__name__}: {e}", "ok": False, "evidence": []})
             finally:
                 shutil.rmtree(ws.root, ignore_errors=True)

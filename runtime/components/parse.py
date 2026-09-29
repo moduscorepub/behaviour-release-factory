@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Rules-based RFQ parser over derived text (expects canonical sz= and instrument tokens)."""
+"""A parser that uses fixed rules to read an RFQ from the derived text.
+
+The parser expects amounts in the sz= form and instruments as IDs, which the enrichment steps produce.
+"""
 
 import re
 from dataclasses import dataclass
@@ -11,7 +14,7 @@ from runtime.refdata import UNIVERSES
 
 @dataclass(frozen=True)
 class Parsed:
-    intent: str  # new | amend | cancel | none
+    intent: str  # One of new, amend, cancel or none.
     side: str | None = None
     instrument: str | None = None
     size: int | None = None

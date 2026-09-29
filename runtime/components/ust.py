@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""US Treasuries desk slang -> reference-data instrument tokens."""
+"""Turn the slang of the US Treasury desk, e.g., "10s" or "tens", into the instrument IDs in the reference data."""
 
 import re
 

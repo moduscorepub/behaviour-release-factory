@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
 # SPDX-License-Identifier: MIT
 
-"""Scenario and counterexample laboratory (imports the candidate runtime; runs inside the worker).
+"""Run scenarios and search for failing sequences of events inside the worker, which imports the engine code under test.
 
-The harness is a small digital twin of the transport and downstream sinks:
-- at-least-once delivery: unacked messages are redelivered after a crash;
-- a crash kills the engine; uncommitted work rolls back; a fresh engine recovers on the same store;
-- a release switch activates a successor release mid-conversation (challenges pinning);
-- every run is monitored for business invariants, not only scenario expectations.
+The harness is a small copy of the chat platform and the receiving systems, and it models the following behaviour:
+
+- Delivery is at least once, so after a crash, the platform delivers again every message that the engine didn't confirm.
+- A crash stops the engine and rolls back any work that the engine didn't commit. A new engine then recovers from the same database.
+- A release switch activates a new release in the middle of a conversation, which tests that conversations stay on their release.
+- Every run is checked against the business rules, as well as against the expected results of a scenario.
 """
 
 import dataclasses
@@ -28,7 +29,10 @@ STEP_KINDS = ("new", "amend", "cancel", "ack", "redeliver", "switch")
 
 
 class StaticReleases:
-    """Fixed release set; switch() activates a successor (same profile, new identity) to challenge pinning."""
+    """Give the engine a fixed set of releases.
+
+    `switch()` activates a copy of each release with a new digest, which tests that conversations stay on their release.
+    """
 
     def __init__(self, releases: list[Release]):
         self._active = list(releases)
@@ -51,7 +55,7 @@ def release_of(pkg: dict, digest: str) -> Release:
 
 
 def contracts_of(pkgs: list[dict]) -> dict[str, list[str]]:
-    """destination -> fields the downstream consumer contract requires."""
+    """Map each destination to the fields that its receiver requires."""
     out = {}
     for pkg in pkgs:
         for o in pkg["profile"]["outputs"]:
@@ -69,7 +73,7 @@ class Harness:
         self._publish = publish
         self.delivered: dict[str, ChatMessage] = {}
         self.unacked: dict[str, ChatMessage] = {}
-        self.cancelled_at: dict[str, int] = {}  # rfq_id -> sink length when cancellation was first observed
+        self.cancelled_at: dict[str, int] = {}  # Maps each rfq_id to the number of sent messages when its cancellation was first seen.
         self.violations: list[str] = []
         self.engine = self._engine()
 
@@ -113,13 +117,13 @@ class Harness:
     def _observe(self) -> None:
         for rfq_id, state in self.db.execute("SELECT rfq_id, state FROM rfqs"):
             if rfq_id in self.cancelled_at and state != "CANCELLED":
-                self._violate(f"I2 cancelled RFQ {rfq_id} reactivated to {state}")
+                self._violate(f"I2 the cancelled RFQ {rfq_id} was reactivated to {state}")
             elif state == "CANCELLED":
                 self.cancelled_at.setdefault(rfq_id, len(self.sink))
         for rfq_id, mark in self.cancelled_at.items():
             for e in self.sink[mark:]:
                 if e.rfq_id == rfq_id and e.kind in FORBIDDEN_AFTER_CANCEL:
-                    self._violate(f"I2 {e.kind} published for {rfq_id} after its cancellation")
+                    self._violate(f"I2 {e.kind} was sent for {rfq_id} after its cancellation")
 
     def _violate(self, text: str) -> None:
         if text not in self.violations:
@@ -129,23 +133,23 @@ class Harness:
         ids = [e.effect_id for e in self.sink]
         for eid in sorted({i for i in ids if ids.count(i) > 1}):
             e = next(x for x in self.sink if x.effect_id == eid)
-            self._violate(f"I1 duplicate external effect: {e.kind} for {e.rfq_id} to {e.destination} published {ids.count(eid)}x")
+            self._violate(f"I1 duplicate message: {e.kind} for {e.rfq_id} was sent to {e.destination} {ids.count(eid)} times")
         for rfq_id in sorted({e.rfq_id for e in self.sink}):
             if len({e.release_digest for e in self.sink if e.rfq_id == rfq_id}) > 1:
-                self._violate(f"I8 effects for {rfq_id} came from more than one release (in-flight conversation not pinned)")
+                self._violate(f"I8 messages for {rfq_id} came from more than one release, so the conversation didn't stay on its release")
         stored = dict(self.db.execute("SELECT msg_id, raw_text FROM inbox"))
         for msg_id, msg in self.delivered.items():
             if msg_id not in stored:
-                self._violate(f"I6 message {msg_id} was delivered but never durably recorded (silent loss)")
+                self._violate(f"I6 message {msg_id} was delivered but never saved, so it was lost without an error")
             elif stored[msg_id] != msg.raw_text:
-                self._violate(f"I3 raw text of {msg_id} was modified")
+                self._violate(f"I3 the original text of {msg_id} was changed")
         for e in self.sink:
             rel = self.releases.get(e.release_digest)
             if rel is None or e.destination not in rel.permitted_destinations:
-                self._violate(f"I4 {e.kind} published to unpermitted destination {e.destination}")
+                self._violate(f"I4 {e.kind} was sent to {e.destination}, which the desk isn't allowed to use")
             missing = [f for f in self.contracts.get(e.destination, []) if e.payload.get(f) is None]
             if missing:
-                self._violate(f"I7 {e.kind} to {e.destination} violates consumer contract, missing {missing}")
+                self._violate(f"I7 {e.kind} to {e.destination} is missing the fields {missing}, which the receiver requires")
         return self.violations
 
     def run(self, events: list[dict], room: str = "", firm: str = "") -> list[str]:
@@ -165,19 +169,19 @@ def run_scenario(releases: list[Release], contracts: dict, scenario: dict) -> li
         actual = h.projected()
         if len(actual) != len(expect["effects"]) or any(e.items() - a.items() for e, a in zip(expect["effects"], actual)):
             shown = [{k: a[k] for k in ("kind", "rfq_id", "destination", "side", "instrument", "size") if k in a} for a in actual]
-            failures.append(f"effects: expected {expect['effects']} got {shown}")
+            failures.append(f"effects: expected {expect['effects']}, but got {shown}")
     for rfq_id, state in expect.get("rfq_states", {}).items():
         row = h.db.execute("SELECT state FROM rfqs WHERE rfq_id=?", (rfq_id,)).fetchone()
         if (row[0] if row else None) != state:
-            failures.append(f"rfq {rfq_id}: expected {state} got {row[0] if row else None}")
+            failures.append(f"rfq {rfq_id}: expected {state}, but got {row[0] if row else None}")
     for msg_id, outcome in expect.get("outcomes", {}).items():
         row = h.db.execute("SELECT outcome FROM inbox WHERE msg_id=?", (msg_id,)).fetchone()
         if (row[0] if row else None) != outcome:
-            failures.append(f"message {msg_id}: expected outcome {outcome} got {row[0] if row else None}")
+            failures.append(f"message {msg_id}: expected the outcome {outcome}, but got {row[0] if row else None}")
     return failures
 
 
-# ---- fault exploration ----------------------------------------------------------------------
+# Fault exploration.
 STEP = st.tuples(st.sampled_from(STEP_KINDS), st.integers(0, 63), st.integers(0, 1), st.sampled_from(CRASHES))
 
 
@@ -207,7 +211,10 @@ def to_events(steps, pools: dict[str, list[str]]) -> list[dict]:
 
 
 def explore(releases: list[Release], contracts: dict, pools: dict, room: str, firm: str, max_examples: int) -> dict:
-    """Search delivery/crash/ack/release-switch schedules for an invariant violation; return the shrunk counterexample."""
+    """Search sequences of deliveries, crashes, trader replies and release switches for one that breaks a business rule.
+
+    Return the smallest failing sequence that the search finds.
+    """
 
     def violated(steps) -> bool:
         return bool(Harness(StaticReleases(releases), contracts).run(to_events(steps, pools), room, firm))
