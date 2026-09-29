@@ -1,5 +1,11 @@
 # behaviour-release-factory
 
+[![CI](https://github.com/moduscorepub/behaviour-release-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/moduscorepub/behaviour-release-factory/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](pyproject.toml)
+[![DCO](https://img.shields.io/badge/DCO-1.1-blue.svg)](CONTRIBUTING.md#developer-certificate-of-origin)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
 An evidence-gated **behaviour-release factory** for chat-driven trading-message engines
 (client chat → RFQ capture → trader routing → chat suggestions). Coding agents implement; a
 separate, protected system decides whether a change may ship.
@@ -59,7 +65,7 @@ suggestions). Bind them to your own transports in the engine's publish capabilit
 | Context and impact | The `context` task packet carries provenance; `impact` selects exactly the releases whose runtime closure changed (dynamic imports widen to the whole tree) |
 | Hooks are feedback, not authority | Claude Code PreToolUse/Stop hooks (`.claude/settings.json`); the authority is the OpenShell sandbox, proven ⊆ the pinned boundary by `openshell-prover` |
 | Test the gate itself | `qualify-gate`: 22 adversarial cases, each with an expected outcome **and** reason |
-| Gate the merge candidate, not a stale PR head | `.github/workflows/factory-gate.yml` runs on `pull_request` and `merge_group` |
+| Gate the merge candidate, not a stale PR head | `examples/ci/factory-gate.yml` (deployment template) runs on `pull_request` and `merge_group`; this repository's own `ci.yml` re-runs the full qualification on every push and pull request |
 
 ## Run it
 
@@ -126,10 +132,29 @@ runtime has changed since its last check.
 - **No live-model path.** The parser is rules-based. The paired evaluation compares profiles on the candidate runtime, not baseline runtime against candidate runtime.
 - **Small example corpora.** With 6–10 conversations per slice, Wilson lower bounds are about 0.61–0.72, which is weak statistical evidence. Grow the corpora before tightening the floors.
 - **Worker isolation is a subprocess.** Secrets are scrubbed from its environment, but a same-UID process can read its parent's environment. In CI, run the worker inside an OpenShell sandbox (no network, read-only tree).
-- **Not exercised against live services.** The Atlassian adapters (Confluence fetch, Jira fetch/apply) haven't been run against a live tenant; plan computation is verified offline. The CI workflow's structure was validated but it hasn't been run on GitHub.
+- **Not exercised against live services.** The Atlassian adapters (Confluence fetch, Jira fetch/apply) haven't been run against a live tenant; plan computation is verified offline. The deployment template `examples/ci/factory-gate.yml` needs your secrets and environment, so it isn't run in this repository.
 - **Registry imports aren't tracked for impact.** Module-level side effects in unselected component modules are not followed. Dynamic import/exec widens impact to the whole runtime tree.
 - **Every factory code change is a control release.** Evidence fails until the authority re-runs `trust-init`. Approvals are protected by access control on `trust/`; the upgrade path is signed governance digests.
 
-## License
+## Licensing
 
-Apache License 2.0. See [LICENSE](LICENSE).
+[MIT](LICENSE). Every source file carries an SPDX licence identifier. Contributions are accepted under the
+same licence with a [DCO](CONTRIBUTING.md#developer-certificate-of-origin) sign-off; there is no CLA.
+
+Runtime dependencies are installed from PyPI; none are vendored or redistributed here.
+
+| Package | Licence |
+|---|---|
+| pydantic, pydantic-core, annotated-types, typing-inspection, PyYAML | MIT |
+| typing-extensions | PSF-2.0 |
+| sortedcontainers | Apache-2.0 |
+| hypothesis | MPL-2.0: file-level copyleft that applies only if you modify Hypothesis's own files; using it as a dependency places no obligations on your code |
+
+The optional `openshell-prover` (Apache-2.0) is downloaded by CI at run time and is not distributed with this project.
+
+## Contributing, security and conduct
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, DCO sign-off and ground rules (never weaken the gate to make something pass).
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately through GitHub; gate bypasses count.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): Contributor Covenant 2.1.
+- [CHANGELOG.md](CHANGELOG.md): release history.

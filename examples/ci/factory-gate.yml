@@ -1,5 +1,10 @@
-# Promotion gate on the actual merge candidate. Required check for the protected branch.
-# merge_group makes the evidence bind to (target branch + queued changes), not a stale PR head.
+# Deployment template: copy to .github/workflows/ in the repository that holds your behaviours.
+# Required check for the protected branch. merge_group makes the evidence bind to
+# (target branch + queued changes), not a stale PR head.
+#
+# Needs a protected "factory-authority" environment holding:
+#   FACTORY_TRUST_TARBALL  base64 tar.gz of trust/ (pins.json, approvals.json) and state/ (release store)
+#   FACTORY_RUNNER_KEY     hex runner key (never stored in the repository)
 name: factory-gate
 
 on:
@@ -10,33 +15,42 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: factory-gate-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}  # never cancel merge-queue runs
+
 jobs:
   builder-sandbox:
+    name: builder-sandbox
     runs-on: ubuntu-latest
-    environment: factory-authority # holds FACTORY_TRUST_TARBALL; approvals required to change it
+    environment: factory-authority
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Restore authority material (pins, approvals; no key needed here)
         run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
         env:
           FACTORY_TRUST_TARBALL: ${{ secrets.FACTORY_TRUST_TARBALL }}
-      - name: Install openshell-prover (static musl build, checksum-verified)
+      - name: Install openshell-prover v0.1.2 (static musl build, checksum-verified)
         run: |
-          base=https://github.com/NVIDIA/OpenShell/releases/latest/download
+          base=https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2
           asset=openshell-prover-x86_64-unknown-linux-musl.tar.gz
-          curl -fsSLO "$base/$asset" && curl -fsSLO "$base/openshell-checksums-sha256.txt"
-          grep " \*\?$asset\$" openshell-checksums-sha256.txt | sha256sum -c -
-          mkdir -p .tools/bin prover && tar -xzf "$asset" -C prover
-          find prover -type f -name openshell-prover -exec install -m 0755 {} .tools/bin/ \;
+          curl -fsSLO "$base/$asset" && curl -fsSLO "$base/openshell-prover-checksums-sha256.txt"
+          grep " \*\?$asset\$" openshell-prover-checksums-sha256.txt | sha256sum -c -
+          mkdir -p .tools/bin && tar -xzf "$asset" -C .tools/bin openshell-prover
       - run: uv run --frozen python -m factory sandbox-check
 
   gate:
+    name: gate
     runs-on: ubuntu-latest
     environment: factory-authority
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Restore authority material and release state
         run: echo "$FACTORY_TRUST_TARBALL" | base64 -d | tar -xz
         env:
@@ -53,11 +67,3 @@ jobs:
             uv run --frozen python -m factory gate "$b" > "gate-$b.json" || status=1
           done
           exit $status
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: factory-evidence
-          path: |
-            build/*/package.json
-            build/*/evidence.json
-            gate-*.json
