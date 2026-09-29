@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Reference chat → RFQ engine: the system the factory qualifies.
 
 Implements the seams the factory needs: a component registry, releases (compiled

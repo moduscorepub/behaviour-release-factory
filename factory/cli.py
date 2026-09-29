@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """`python -m factory <command>`: the same commands run locally, in CI and from agent hooks."""
 
 import argparse

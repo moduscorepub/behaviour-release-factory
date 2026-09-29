@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Atlassian adapters. Confluence owns approved intent; Jira is a projection of delivery state.
 
 - `confluence_snapshot` binds to an exact page version and records its content digest; the

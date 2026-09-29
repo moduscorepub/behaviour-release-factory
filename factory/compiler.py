@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Behaviour-release compiler: approved spec + profile + scenarios + corpus -> canonical package.
 
 Deterministic: resolves configuration, validates composition and permitted effects,

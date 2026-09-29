@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """US Treasuries desk slang -> reference-data instrument tokens."""
 
 import re

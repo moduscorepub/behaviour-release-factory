@@ -1,9 +1,31 @@
 [project]
 name = "behaviour-release-factory"
 version = "0.1.0"
+description = "Evidence-gated behaviour-release factory: compile, prove, gate and activate agent-built changes to chat-driven trading-message engines."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "The behaviour-release-factory contributors" }]
 requires-python = ">=3.14"
+keywords = ["ai-agents", "release-engineering", "quality-gate", "property-based-testing", "mutation-testing", "software-supply-chain", "rfq", "trading"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "hypothesis>=6.168.3",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/moduscorepub/behaviour-release-factory"
+Issues = "https://github.com/moduscorepub/behaviour-release-factory/issues"
+Security = "https://github.com/moduscorepub/behaviour-release-factory/security/policy"
+Changelog = "https://github.com/moduscorepub/behaviour-release-factory/blob/main/CHANGELOG.md"

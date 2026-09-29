@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Scenario and counterexample laboratory (imports the candidate runtime; runs inside the worker).
 
 The harness is a small digital twin of the transport and downstream sinks:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Rules-based RFQ parser over derived text (expects canonical sz= and instrument tokens)."""
 
 import re

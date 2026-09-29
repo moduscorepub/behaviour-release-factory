@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Desk-agnostic enrichment. Every enrichment is str -> str: it can only produce
 the current message's derived_text; raw_text is never reachable from here."""
 

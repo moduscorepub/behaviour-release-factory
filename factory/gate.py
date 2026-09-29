@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Promotion gate and authority records. Fail-closed: PASS only when
 
   the approved contract is current, evidence is runner-signed and applies to this exact

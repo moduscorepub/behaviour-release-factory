@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Builder isolation: fast feedback in the agent, real authority below it.
 
 - Claude Code hooks give immediate corrective feedback. They are not a security boundary.

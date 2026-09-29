@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Instrument reference data per universe (id → currency)."""
 
 UNIVERSES: dict[str, dict[str, str]] = {

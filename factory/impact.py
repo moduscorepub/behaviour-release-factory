@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Context and impact engine over the release store.
 
 Impact: which active releases are invalidated by a runtime change. A release depends on

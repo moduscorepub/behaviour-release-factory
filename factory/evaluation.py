@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Corpus evaluation: slice-level correctness and harm, never a single aggregate score.
 
 Unit of evaluation is a conversation (corpus item), so near-duplicate context cannot leak

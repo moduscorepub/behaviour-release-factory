@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Gate qualification benchmark: the gate earns an autonomous lane by rejecting these, not by looking green.
 
 Each case runs in an isolated copy of a prepared workspace (UST live, a good gilt candidate with

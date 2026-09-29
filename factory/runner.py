@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Evidence runner: compile and execute obligations in isolation, then sign what actually ran.
 
 In production `evidence` runs in protected CI holding the runner key; the implementation agent

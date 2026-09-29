@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Domain mutation testing: does the behaviour's suite reject plausible wrong implementations?
 
 Mutants are business faults (lost idempotency, reactivated cancellations, inverted sides,

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Component registry: each component declares its data contract and permitted effects.
 
 Declarations are checked by the compiler; they are enforced structurally at runtime

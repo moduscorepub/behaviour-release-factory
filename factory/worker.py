@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Isolation boundary: candidate runtime code only ever executes in this subprocess.
 
 The parent passes a JSON request on stdin and receives JSON on stdout. The subprocess runs

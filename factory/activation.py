@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Release store and controlled activation.
 
 The runtime configuration store is played by SQLite here with the semantics the

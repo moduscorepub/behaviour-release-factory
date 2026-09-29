@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """Chat -> RFQ engine with durable inbox/outbox and an explicit external-effect protocol.
 
 Protocol (the properties the factory's lab challenges):

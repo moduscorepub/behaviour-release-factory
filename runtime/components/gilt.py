@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The behaviour-release-factory contributors
+# SPDX-License-Identifier: MIT
+
 """UK gilt desk slang ("4¼s of 32", "ukt 32", "38s") -> instrument tokens."""
 
 import re
